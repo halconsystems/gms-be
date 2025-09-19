@@ -10,4 +10,4 @@ pipelines:
               variables:
                 SSH_USER: $sshuser
                 SERVER: $prodip
-                COMMAND: 'echo "✅ Connected to production server"; uname -a'
+                COMMAND: ls
