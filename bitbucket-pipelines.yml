@@ -2,7 +2,7 @@ image: atlassian/default-image:3
 
 pipelines:
   branches:
-    master:
+    main:
       - step:
           name: Deploy to Prod Server
           script:
@@ -10,4 +10,6 @@ pipelines:
               variables:
                 SSH_USER: $sshuser
                 SERVER: $prodip
-                COMMAND: ls
+                COMMAND: |
+                  cd /home/ubuntu/gms-be
+                  pm2 stop all || true
