@@ -5,9 +5,9 @@ pipelines:
     - step:
         name: SSH to Prod Server
         script:
-          # Setup SSH key from base64 encoded variable
+          # Setup SSH key from raw variable
           - mkdir -p ~/.ssh
-          - echo "$sshkey" | base64 -d > ~/.ssh/id_rsa
+          - echo "$sshkey" > ~/.ssh/id_rsa
           - chmod 600 ~/.ssh/id_rsa
 
           # Disable strict host key checking
