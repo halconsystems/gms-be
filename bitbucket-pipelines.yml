@@ -5,13 +5,13 @@ pipelines:
     - step:
         name: SSH to Prod Server
         script:
-          # Setup SSH key
+          # Setup SSH key from base64 encoded variable
           - mkdir -p ~/.ssh
-          - echo "$sshkey" > ~/.ssh/id_rsa
+          - echo "$sshkey" | base64 -d > ~/.ssh/id_rsa
           - chmod 600 ~/.ssh/id_rsa
 
-          # Disable strict host key checking (to avoid interactive prompt)
+          # Disable strict host key checking
           - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
 
-          # SSH into server and run commands
+          # SSH into server
           - ssh $sshuser@$prodip "echo '✅ Connected to production server'; uname -a"
