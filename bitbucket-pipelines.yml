@@ -1,0 +1,17 @@
+image: atlassian/default-image:3
+
+pipelines:
+  default:
+    - step:
+        name: SSH to Prod Server
+        script:
+          # Setup SSH key
+          - mkdir -p ~/.ssh
+          - echo "$sshkey" > ~/.ssh/id_rsa
+          - chmod 600 ~/.ssh/id_rsa
+
+          # Disable strict host key checking (to avoid interactive prompt)
+          - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+
+          # SSH into server and run commands
+          - ssh $sshuser@$prodip "echo '✅ Connected to production server'; uname -a"
