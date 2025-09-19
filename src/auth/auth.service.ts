@@ -26,7 +26,7 @@ export class AuthService {
 
     const token = this.jwtService.sign({ userId: fullUser.id, email: fullUser.email, roleName, organizationId });
 
-    return { user: fullUser, accessToken: token };
+    return { user: fullUser, token: token };
   }
 
   /** ---------------- USER LOGIN ---------------- */
@@ -46,6 +46,6 @@ export class AuthService {
 
     const token = this.jwtService.sign({ userId: user.id, email: user.email, roleName, organizationId });
 
-    return { accessToken: token, user: { id: user.id, email: user.email, userName: user.userName, roleName, organizationId } };
+    return { token: token, user: { id: user.id, email: user.email, userName: user.userName, roleName, organizationId } };
   }
 }
