@@ -11,5 +11,7 @@ pipelines:
                 SSH_USER: $sshuser
                 SERVER: $prodip
                 COMMAND: |
-                  cd /home/ubuntu/gms-be
-                  pm2 stop all || true
+                  bash -lc "
+                    cd /home/ubuntu/gms-be
+                    pm2 stop all || true
+                  "
