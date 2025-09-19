@@ -13,5 +13,5 @@ pipelines:
           # Disable strict host key checking
           - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
 
-          # SSH into server
-          - ssh $sshuser@$prodip "echo '✅ Connected to production server'; uname -a"
+          # SSH into server (explicitly use the key)
+          - ssh -i ~/.ssh/id_rsa $sshuser@$prodip "echo '✅ Connected to production server'; uname -a"
