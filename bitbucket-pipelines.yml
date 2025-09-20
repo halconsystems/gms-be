@@ -12,6 +12,30 @@ pipelines:
                 SERVER: $prodip
                 COMMAND: |
                   bash -lc "
+                    sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
                     cd /home/ubuntu/gms-be
-                    pm2 stop all || true
+                    sudo pm2 stop gms-be
+                    echo '🔄 Resetting to latest main...'
+                    git fetch origin main
+                    git reset --hard origin/main
+                    git pull origin main
+
+                    echo '🧹 Cleaning old Prisma & node_modules...'
+                    rm -rf node_modules/.prisma
+                    rm -rf node_modules/@prisma
+                    rm -rf node_modules package-lock.json
+                    npm cache clean --force
+
+                    echo '📦 Installing dependencies...'
+                    npm install
+
+                    echo '⚙️ Generating Prisma client...'
+                    chmod +x node_modules/.bin/prisma || true
+                    npx prisma generate
+
+                    echo '🏗️ Building project...'
+                    npm run build
+
+                    echo '🚀 Restarting PM2...'
+                    sudo pm2 restart gms-be
                   "
