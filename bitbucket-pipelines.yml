@@ -36,7 +36,7 @@ pipelines:
                     rm -rf node_modules package-lock.json
                     rm -rf dist
                     npm cache clean --force
-
+                    cp /home/ubuntu/.env /home/ubuntu/gms-be
                     echo '📦 Installing dependencies...'
                     npm install
 
@@ -44,7 +44,6 @@ pipelines:
                     npm run build
 
                     echo '🚀 Restarting PM2...'
-                    cp /home/ubuntu/.env /home/ubuntu/gms-be
                     sudo pm2 delete gms-be || true
                     sudo pm2 start dist/src/main.js --name gms-be
 
