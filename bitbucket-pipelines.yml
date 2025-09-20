@@ -14,18 +14,23 @@ pipelines:
                   bash -lc "
                     echo '🔑 Setting permissions...'
                     sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
-
+                  
                     echo '📂 Entering project...'
                     cd /home/ubuntu/gms-be
+                    cp .env ../
 
                     echo '🛑 Stopping old PM2 process...'
                     sudo pm2 stop gms-be || true
 
                     echo '🔄 Resetting to latest main...'
-                    git fetch origin main
+                    # 2. Remove any untracked/garbage files
+                    git clean -fdx
+
+                    # 3. Fetch the latest remote commits
+                    git fetch --all
+
+                    # 4. Hard reset to main
                     git reset --hard origin/main
-                    git clean -fd
-                    git pull origin main
 
                     echo '🧹 Cleaning old dependencies & Prisma...'
                     rm -rf node_modules package-lock.json
@@ -33,15 +38,13 @@ pipelines:
                     npm cache clean --force
 
                     echo '📦 Installing dependencies...'
-                    npm install --legacy-peer-deps
-
-                    echo '⚙️ Generating Prisma client...'
-                    npx prisma generate
+                    npm install
 
                     echo '🏗️ Building project...'
                     npm run build
 
                     echo '🚀 Restarting PM2...'
+                    cp /home/ubuntu/.env /home/ubuntu/gms-be
                     sudo pm2 delete gms-be || true
                     sudo pm2 start dist/src/main.js --name gms-be
 
