@@ -33,15 +33,17 @@ pipelines:
                     git reset --hard origin/main
 
                     echo '🧹 Cleaning old dependencies & Prisma...'
-                    rm -rf node_modules package-lock.json
-                    rm -rf dist
-                    npm cache clean --force
-                    cp /home/ubuntu/.env /home/ubuntu/gms-be
+                    sudo rm -rf node_modules package-lock.json
+                    sudo rm -rf dist
+                    sudo npm cache clean --force
+                    sudo cp /home/ubuntu/.env /home/ubuntu/gms-be
+                    sudo npx prisma generate
+
                     echo '📦 Installing dependencies...'
-                    npm install
+                    sudo npm install
 
                     echo '🏗️ Building project...'
-                    npm run build
+                    sudo npm run build
 
                     echo '🚀 Restarting PM2...'
                     sudo pm2 delete gms-be || true
