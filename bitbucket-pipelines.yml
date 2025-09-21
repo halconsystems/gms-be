@@ -1,53 +1,42 @@
-image: atlassian/default-image:3
-
 pipelines:
   branches:
     main:
       - step:
-          name: Deploy to Prod Server
+          name: Deploy on Same Server
           runs-on:
             - self.hosted
             - linux.shell
           script:
-            - pipe: atlassian/ssh-run:0.2.8
-              variables:
-                SSH_USER: $sshuser
-                SERVER: $prodip
-                COMMAND: |
-                  bash -lc "
-                    echo '🔑 Setting permissions...'
-                    sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
-                  
-                    echo '📂 Entering project...'
-                    cd /home/ubuntu/gms-be
-                    cp .env ../
+            - echo "🚀 Starting local deployment on runner server..."
+            - bash -lc "
+                echo '🔑 Setting permissions...'
+                sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
 
-                    echo '🛑 Stopping old PM2 process...'
-                    sudo pm2 stop gms-be || true
+                echo '📂 Entering project...'
+                cd /home/ubuntu/gms-be
+                cp .env ../
 
-                    echo '🔄 Resetting to latest main...'
-                    # 2. Remove any untracked/garbage files
-                    git clean -fdx
+                echo '🛑 Stopping old PM2 process...'
+                sudo pm2 stop gms-be || true
 
-                    # 3. Fetch the latest remote commits
-                    git fetch --all
+                echo '🔄 Resetting to latest main...'
+                git clean -fdx
+                git fetch --all
+                git reset --hard origin/main
 
-                    # 4. Hard reset to main
-                    git reset --hard origin/main
+                echo '🧹 Cleaning old dependencies & Prisma...'
+                sudo npm cache clean --force
+                sudo cp /home/ubuntu/.env /home/ubuntu/gms-be
 
-                    echo '🧹 Cleaning old dependencies & Prisma...'
-                    sudo npm cache clean --force
-                    sudo cp /home/ubuntu/.env /home/ubuntu/gms-be
+                echo '📦 Installing dependencies...'
+                sudo npm install
 
-                    echo '📦 Installing dependencies...'
-                    sudo npm install
+                echo '🏗️ Building project...'
+                sudo npm run build
 
-                    echo '🏗️ Building project...'
-                    sudo npm run build
+                echo '🚀 Restarting PM2...'
+                sudo pm2 delete gms-be || true
+                sudo pm2 start dist/src/main.js --name gms-be
 
-                    echo '🚀 Restarting PM2...'
-                    sudo pm2 delete gms-be || true
-                    sudo pm2 start dist/src/main.js --name gms-be
-
-                    echo '✅ Deployment completed!'
-                  "
+                echo '✅ Deployment completed!'
+              "
