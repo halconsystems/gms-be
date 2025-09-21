@@ -11,12 +11,12 @@ pipelines:
             - echo "🚀 Starting deployment..."
 
             - echo "🔑 Setting permissions..."
-            - sudo -u ubuntu chown -R ubuntu:ubuntu /home/ubuntu/gms-be
+            - sudo ubuntu chown -R ubuntu:ubuntu /home/ubuntu/gms-be
             - cd /home/ubuntu/gms-be
             - cp .env ../
             - echo "🛑 Stopping old PM2 process..."
-            - pm2 stop gms-be || true
-            - pm2 delete gms-be || true
+            - sudo pm2 stop gms-be || true
+            - sudo pm2 delete gms-be || true
 
             - echo "🔄 Updating code..."
             - git clean -fdx
@@ -35,6 +35,6 @@ pipelines:
             - npx prisma generate
             - sleep 20
             - echo "🚀 Starting PM2..."
-            - pm2 start dist/src/main.js --name gms-be
+            - sudo pm2 start dist/src/main.js --name gms-be
 
             - echo "✅ Deployment completed!"
