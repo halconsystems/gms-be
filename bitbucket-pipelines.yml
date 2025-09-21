@@ -2,38 +2,12 @@ pipelines:
   branches:
     main:
       - step:
-          name: Deploy on Same Server
+          name: Test CD and LS
           runs-on:
             - self.hosted
             - linux.shell
-          working_directory: /home/ubuntu/gms-be
           script:
-            - echo "🚀 Starting local deployment on runner server..."
-
-            - echo "🔑 Setting permissions..."
-            - sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
-
-            - echo "🛑 Stopping old PM2 process..."
-            - sudo pm2 stop gms-be || true
-
-            - echo "🔄 Resetting to latest main..."
-            - sudo -u ubuntu git config --global --add safe.directory /home/ubuntu/gms-be
-            - sudo -u ubuntu git clean -fdx
-            - sudo -u ubuntu git fetch --all
-            - sudo -u ubuntu git reset --hard origin/main
-
-            - echo "🧹 Cleaning old dependencies & Prisma..."
-            - sudo npm cache clean --force
-            - sudo cp /home/ubuntu/.env /home/ubuntu/gms-be
-
-            - echo "📦 Installing dependencies..."
-            - sudo -u ubuntu npm install
-
-            - echo "🏗️ Building project..."
-            - sudo -u ubuntu npm run build
-
-            - echo "🚀 Restarting PM2..."
-            - sudo pm2 delete gms-be || true
-            - sudo pm2 start /home/ubuntu/gms-be/dist/src/main.js --name gms-be
-
-            - echo "✅ Deployment completed!"
+            - echo "🚀 Testing access to project folder..."
+            - cd /home/ubuntu/gms-be
+            - pwd
+            - ls -la
