@@ -34,7 +34,7 @@ pipelines:
             - npm run build
             - npx prisma generate
             - echo "🚀 Starting PM2..."
-            - pm2 start dist/src/main.js --name gms-be --cwd /home/ubuntu/gms-be --env-file /home/ubuntu/gms-be/.env
+            - pm2 start dist/src/main.js --name gms-be --cwd /home/ubuntu/gms-be
 
 
             - echo "✅ Deployment completed!"
