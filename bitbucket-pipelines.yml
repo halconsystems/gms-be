@@ -20,7 +20,7 @@ pipelines:
 
             - echo "🔄 Updating code..."
             - git clean -fdx
-            - ubuntu git fetch --all
+            - git fetch --all
             - git reset --hard origin/main
 
             - echo "🧹 Cleaning dependencies & Prisma..."
