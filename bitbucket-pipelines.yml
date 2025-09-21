@@ -29,6 +29,8 @@ pipelines:
 
             - echo "📦 Installing dependencies..."
             - npm install
+            - npx prisma generate
+
 
             - echo "🏗️ Building project..."
             - npm run build
