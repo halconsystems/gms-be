@@ -36,6 +36,6 @@ pipelines:
             - npm run build
 
             - echo "🚀 Starting PM2..."
-            - pm2 start /home/ubuntu/gms-be/dist/src/main.js --name gms-be
+            - pm2 start dist/src/main.js --name gms-be --cwd /home/ubuntu/gms-be
 
             - echo "✅ Deployment completed!"
