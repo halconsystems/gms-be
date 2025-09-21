@@ -12,6 +12,7 @@ pipelines:
 
             - echo "🔑 Setting permissions..."
             - sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
+            - cd /home/ubuntu/gms-be
             - cp .env ../
             - echo "🛑 Stopping old PM2 process..."
             - pm2 stop gms-be || true
