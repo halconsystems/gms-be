@@ -8,35 +8,34 @@ pipelines:
             - linux.shell
           script:
             - echo "🚀 Starting local deployment on runner server..."
-            - bash -lc "
-                echo '🔑 Setting permissions...'
-                sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
 
-                echo '📂 Entering project...'
-                cd /home/ubuntu/gms-be
-                cp .env ../
+            - echo "🔑 Setting permissions..."
+            - sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
 
-                echo '🛑 Stopping old PM2 process...'
-                sudo pm2 stop gms-be || true
+            - echo "📂 Entering project..."
+            - cd /home/ubuntu/gms-be
+            - cp .env ../
 
-                echo '🔄 Resetting to latest main...'
-                git clean -fdx
-                git fetch --all
-                git reset --hard origin/main
+            - echo "🛑 Stopping old PM2 process..."
+            - sudo pm2 stop gms-be || true
 
-                echo '🧹 Cleaning old dependencies & Prisma...'
-                sudo npm cache clean --force
-                sudo cp /home/ubuntu/.env /home/ubuntu/gms-be
+            - echo "🔄 Resetting to latest main..."
+            - git clean -fdx
+            - git fetch --all
+            - git reset --hard origin/main
 
-                echo '📦 Installing dependencies...'
-                sudo npm install
+            - echo "🧹 Cleaning old dependencies & Prisma..."
+            - sudo npm cache clean --force
+            - sudo cp /home/ubuntu/.env /home/ubuntu/gms-be
 
-                echo '🏗️ Building project...'
-                sudo npm run build
+            - echo "📦 Installing dependencies..."
+            - sudo npm install
 
-                echo '🚀 Restarting PM2...'
-                sudo pm2 delete gms-be || true
-                sudo pm2 start dist/src/main.js --name gms-be
+            - echo "🏗️ Building project..."
+            - sudo npm run build
 
-                echo '✅ Deployment completed!'
-              "
+            - echo "🚀 Restarting PM2..."
+            - sudo pm2 delete gms-be || true
+            - sudo pm2 start dist/src/main.js --name gms-be
+
+            - echo "✅ Deployment completed!"
