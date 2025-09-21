@@ -20,22 +20,22 @@ pipelines:
             - sudo pm2 stop gms-be || true
 
             - echo "🔄 Resetting to latest main..."
-            - git clean -fdx
-            - git fetch --all
-            - git reset --hard origin/main
+            - sudo -u ubuntu git -C /home/ubuntu/gms-be clean -fdx
+            - sudo -u ubuntu git -C /home/ubuntu/gms-be fetch --all
+            - sudo -u ubuntu git -C /home/ubuntu/gms-be reset --hard origin/main
 
             - echo "🧹 Cleaning old dependencies & Prisma..."
             - sudo npm cache clean --force
             - sudo cp /home/ubuntu/.env /home/ubuntu/gms-be
 
             - echo "📦 Installing dependencies..."
-            - sudo npm install
+            - sudo -u ubuntu npm install --prefix /home/ubuntu/gms-be
 
             - echo "🏗️ Building project..."
-            - sudo npm run build
+            - sudo -u ubuntu npm run build --prefix /home/ubuntu/gms-be
 
             - echo "🚀 Restarting PM2..."
             - sudo pm2 delete gms-be || true
-            - sudo pm2 start dist/src/main.js --name gms-be
+            - sudo pm2 start /home/ubuntu/gms-be/dist/src/main.js --name gms-be
 
             - echo "✅ Deployment completed!"
