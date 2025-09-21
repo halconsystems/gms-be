@@ -11,7 +11,7 @@ pipelines:
             - echo "🚀 Starting deployment..."
 
             - echo "🔑 Setting permissions..."
-            - sudo ubuntu chown -R ubuntu:ubuntu /home/ubuntu/gms-be
+            - sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
             - cd /home/ubuntu/gms-be
             - cp .env ../
             - echo "🛑 Stopping old PM2 process..."
