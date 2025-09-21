@@ -6,28 +6,34 @@ pipelines:
           runs-on:
             - self.hosted
             - linux.shell
+          working_directory: /home/ubuntu/gms-be
           script:
             - echo "🚀 Starting deployment..."
 
-            # Ensure correct permissions
+            - echo "🔑 Setting permissions..."
             - sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
-            - cd /home/ubuntu/gms-be
 
-            # Stop existing PM2 app
+            - echo "🛑 Stopping old PM2 process..."
             - pm2 stop gms-be || true
             - pm2 delete gms-be || true
 
-            # Update code as ubuntu
-            - sudo -u ubuntu git clean -fdx
-            - sudo -u ubuntu git fetch --all
-            - sudo -u ubuntu git reset --hard origin/main
+            - echo "🔄 Updating code..."
+            - git clean -fdx
+            - git fetch --all
+            - git reset --hard origin/main
 
-            # Install deps, build, generate Prisma as ubuntu
-            - sudo -u ubuntu npm install
-            - sudo -u ubuntu npm run build
-            - sudo -u ubuntu npx prisma generate
+            - echo "🧹 Cleaning dependencies & Prisma..."
+            - npm cache clean --force
+            - cp /home/ubuntu/.env /home/ubuntu/gms-be
 
-            # Start PM2 as ubuntu with correct cwd and env
-            - sudo -u ubuntu pm2 start dist/src/main.js --name gms-be --cwd /home/ubuntu/gms-be --env production
+            - echo "📦 Installing dependencies..."
+            - npm install
+
+            - echo "🏗️ Building project..."
+            - npm run build
+            - npx prisma generate
+
+            - echo "🚀 Starting PM2 with .env..."
+            - pm2 start dist/src/main.js --name gms-be --cwd /home/ubuntu/gms-be --env-file /home/ubuntu/gms-be/.env
 
             - echo "✅ Deployment completed!"
