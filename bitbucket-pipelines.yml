@@ -11,12 +11,12 @@ pipelines:
             - echo "🚀 Starting deployment..."
 
             - echo "🔑 Setting permissions..."
-            - sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
+            - sudo -u ubuntu chown -R ubuntu:ubuntu /home/ubuntu/gms-be
             - cd /home/ubuntu/gms-be
             - cp .env ../
             - echo "🛑 Stopping old PM2 process..."
             - pm2 stop gms-be || true
-            - ubuntu pm2 delete gms-be || true
+            - pm2 delete gms-be || true
 
             - echo "🔄 Updating code..."
             - git clean -fdx
@@ -28,10 +28,10 @@ pipelines:
             - cp /home/ubuntu/.env /home/ubuntu/gms-be
 
             - echo "📦 Installing dependencies..."
-            - ubuntu npm install
+            - npm install
 
             - echo "🏗️ Building project..."
-            - ubuntu npm run build
+            - npm run build
 
             - echo "🚀 Starting PM2..."
             - pm2 start /home/ubuntu/gms-be/dist/src/main.js --name gms-be
