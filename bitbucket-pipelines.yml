@@ -5,6 +5,9 @@ pipelines:
     main:
       - step:
           name: Deploy to Prod Server
+          runs-on:
+            - self.hosted
+            - linux.shell
           script:
             - pipe: atlassian/ssh-run:0.2.8
               variables:
@@ -35,12 +38,16 @@ pipelines:
                     echo '🧹 Cleaning old dependencies & Prisma...'
                     sudo npm cache clean --force
                     sudo cp /home/ubuntu/.env /home/ubuntu/gms-be
+
                     echo '📦 Installing dependencies...'
                     sudo npm install
+
                     echo '🏗️ Building project...'
                     sudo npm run build
+
                     echo '🚀 Restarting PM2...'
                     sudo pm2 delete gms-be || true
                     sudo pm2 start dist/src/main.js --name gms-be
+
                     echo '✅ Deployment completed!'
                   "
