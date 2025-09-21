@@ -2,7 +2,7 @@ pipelines:
   branches:
     main:
       - step:
-          name: Deploy on Same Server
+          name: Deploy on API Server
           runs-on:
             - self.hosted
             - linux.shell
