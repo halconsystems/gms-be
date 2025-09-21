@@ -19,6 +19,7 @@ pipelines:
             - pm2 delete gms-be || true
 
             - echo "🔄 Updating code..."
+            - git clean -fdx
             - git fetch --all
             - git reset --hard origin/main
 
@@ -31,9 +32,9 @@ pipelines:
   
             - echo "🏗️ Building project..."
             - npm run build
-            - sudo npx prisma generate
+            - npx prisma generate
+            - sleep 20
             - echo "🚀 Starting PM2..."
-            - pm2 start dist/src/main.js --name gms-be --cwd /home/ubuntu/gms-be
-
+            - pm2 start dist/src/main.js --name gms-be
 
             - echo "✅ Deployment completed!"
