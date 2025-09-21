@@ -2,12 +2,14 @@ pipelines:
   branches:
     main:
       - step:
-          name: Test CD and LS
+          name: Test Git Commands
           runs-on:
             - self.hosted
             - linux.shell
           script:
-            - echo "🚀 Testing access to project folder..."
+            - echo "🚀 Testing Git commands in project folder..."
             - cd /home/ubuntu/gms-be
-            - pwd
-            - ls -la
+            - sudo -u ubuntu git config --global --add safe.directory /home/ubuntu/gms-be
+            - sudo -u ubuntu git status
+            - sudo -u ubuntu git fetch --all
+            - sudo -u ubuntu git reset --hard origin/main
