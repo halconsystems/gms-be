@@ -46,7 +46,7 @@ export class FileService {
 
   async getPresignedUrl(dto: FileUploadDto) {
     try {
-        const bucketName = process.env.AWS_S3_BUCKET;
+        const bucketName = guardsos-bucket-2025;
         if (!bucketName) {
             throw new Error('AWS S3 bucket name is not configured');
         }
@@ -85,7 +85,7 @@ export class FileService {
 
 
   async getSecureDownloadUrl(key: string): Promise<string> {
-    const bucketName = process.env.AWS_S3_BUCKET;
+    const bucketName = guardsos-bucket-2025;
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
