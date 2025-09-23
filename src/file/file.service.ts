@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
   PutObjectCommandInput,
   GetObjectCommand,
+  S3ClientConfig,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
@@ -21,36 +22,64 @@ import { off } from 'process';
 export class FileService {
 
 
-  constructor(private readonly prisma : PrismaService){}
 
 
-  private s3 = new S3Client({
-    region: process.env.AWS_REGION || "",
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY || "",
-      secretAccessKey: process.env.AWS_SECRET_KEY || "",
-    },
-  });
 
-  async getPresignedUrl(dto : FileUploadDto) {
+  private readonly s3: S3Client;
+
+  constructor(private readonly prisma: PrismaService) {
+    if (!process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY) {
+      throw new InternalServerErrorException('AWS credentials not configured');
+    }
+
+    const config: S3ClientConfig = {
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY,
+        secretAccessKey: process.env.AWS_SECRET_KEY,
+      },
+      maxAttempts: 3,
+    };
+
+    this.s3 = new S3Client(config);
+  }
+
+  async getPresignedUrl(dto: FileUploadDto) {
     try {
         const bucketName = process.env.AWS_S3_BUCKET;
-        const key = `uploads/${Date.now()}-${dto.fileName}`;
+        if (!bucketName) {
+            throw new Error('AWS S3 bucket name is not configured');
+        }
+
+        // Sanitize filename and create unique key
+        const sanitizedFileName = dto.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const key = `uploads/${Date.now()}-${sanitizedFileName}`;
+
+        console.log('Generating presigned URL for:', {
+            bucket: bucketName,
+            key: key,
+            contentType: dto.fileType
+        });
 
         const params: PutObjectCommandInput = {
-        Bucket: bucketName,
-        Key: key,
-        ContentType: dto.fileType,
+            Bucket: bucketName,
+            Key: key,
+            ContentType: dto.fileType,
         };
 
         const command = new PutObjectCommand(params);
-        const uploadUrl = await getSignedUrl(this.s3, command, { expiresIn: 1240 });
+        const uploadUrl = await getSignedUrl(this.s3, command, { 
+            expiresIn: 3600  // 1 hour expiration
+        });
 
-        // const fileUrl = `https://${bucketName}.s3.amazonaws.com/${key}`;
+        console.log('Generated presigned URL successfully');
         return { uploadUrl, key };
     } catch (error) {
-        console.error('S3 upload error:', error);
-        handlePrismaError(error);
+        console.error('Failed to generate S3 presigned URL:', error);
+        if (error instanceof Error) {
+            throw new Error(`Failed to generate upload URL: ${error.message}`);
+        }
+        throw new Error('Failed to generate upload URL');
     }
   }
 

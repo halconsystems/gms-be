@@ -16,15 +16,15 @@ import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.dec
 export class FileController {
   constructor(private readonly fileService: FileService) {}
 
-  @Post('upload')
+  @Post('presigned-url')
   @ApiOperation({ summary: "get S3 bucket presigned url" })
   async getPresignedUrl(@Body() body: FileUploadDto) {
     try {
+      // Return raw result here. A global TransformInterceptor will wrap this
+      // response into the standard { status, message, data } shape. Returning
+      // the wrapped object here caused a double-wrap and nested data.
       const result = await this.fileService.getPresignedUrl(body);
-      return {
-        success: true,
-        ...result
-      };
+      return result;
     } catch (error) {
       throw new InternalServerErrorException(
         error.message || 'Failed to generate upload URL'
@@ -42,7 +42,7 @@ export class FileController {
     return { url };
   }
 
-  @Post('upload')
+  @Post('csv')
   @UseInterceptors(FileInterceptor('file'))
   async uploadCSV(@UploadedFile() file: Express.Multer.File) {
     return this.fileService.parseCSV(file.buffer);
