@@ -23,17 +23,31 @@ import { CreateOfficeDto } from './dto/create-office-dto';
 import { CreateOrganizationBankAccountDto } from './dto/create-bank-account.dto';
 
 @ApiTags('Organizations')
-@ApiBearerAuth('jwt')
 @Controller('organizations')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class OrganizationController {
   constructor(private readonly organizationService: OrganizationService) {}
 
   @Post('register')
-  @Roles(RolesEnum.superAdmin)
   @ResponseMessage('Organization registered successfully')
-  create(@Body() dto: CreateOrganizationDto) {
-    return this.organizationService.create(dto);
+  async create(@Body() dto: CreateOrganizationDto) {
+    try {
+      console.log('Creating organization with data:', {
+        ...dto,
+        password: '[REDACTED]'
+      });
+      
+      const result = await this.organizationService.create(dto);
+      
+      console.log('Organization created successfully:', {
+        organizationId: result.data.id,
+        userId: result.data.userId
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('Organization creation failed:', error);
+      throw error;
+    }
   }
 
   @Get()

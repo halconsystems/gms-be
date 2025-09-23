@@ -1,7 +1,17 @@
-import { IsString, IsNotEmpty, IsOptional, IsEmail, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEmail,
+  MinLength,
+} from 'class-validator';
 import { CreateOfficeDto } from './create-office-dto';
 
 export class CreateOrganizationDto {
+  @IsString()
+  @IsOptional()
+  organizationId?: string;
+
   @IsString()
   @IsNotEmpty()
   organizationName: string;
@@ -40,10 +50,6 @@ export class CreateOrganizationDto {
   @IsString()
   @IsNotEmpty()
   userName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  roleName: string;
 
   @IsString()
   @IsNotEmpty()

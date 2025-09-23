@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, ValidationPipe } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, ValidationPipe, InternalServerErrorException } from '@nestjs/common';
 import { FileService } from './file.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/role.decorator';
@@ -16,13 +16,20 @@ import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.dec
 export class FileController {
   constructor(private readonly fileService: FileService) {}
 
-  @Post('url')
-  @ApiBearerAuth('jwt')
-  @ApiOperation({ summary : "get S3 bucket presigned url" })
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Post('upload')
+  @ApiOperation({ summary: "get S3 bucket presigned url" })
   async getPresignedUrl(@Body() body: FileUploadDto) {
-    return this.fileService.getPresignedUrl(body);
+    try {
+      const result = await this.fileService.getPresignedUrl(body);
+      return {
+        success: true,
+        ...result
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        error.message || 'Failed to generate upload URL'
+      );
+    }
   }
 
   @Post('download-url')

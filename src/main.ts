@@ -12,21 +12,24 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: ['https://portal.guardsos.com', 'http://localhost:3000'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
+    origin: [
+      "https://glorious-guide-q75q59vqq947fxr5x-3000.app.github.dev"
+    ],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true, // only if you send cookies or auth headers
   });
-  
+
+
   dotenv.config();
-  
-  app.useGlobalPipes(new ValidationPipe({ 
-    whitelist: true ,
-     forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true
-      },
-      disableErrorMessages: false
+
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    transformOptions: {
+      enableImplicitConversion: true
+    },
+    disableErrorMessages: false
   }));
   app.useGlobalInterceptors(new TransformInterceptor());
 
@@ -43,7 +46,7 @@ async function bootstrap() {
         name: 'Authorization',
         in: 'header',
       },
-      'jwt', 
+      'jwt',
     )
     .build();
 

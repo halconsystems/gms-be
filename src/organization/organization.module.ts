@@ -3,9 +3,12 @@ import { OrganizationService } from './organization.service';
 import { OrganizationController } from './organization.controller';
 import { UserService } from 'src/user/user.service';
 import { RoleService } from 'src/role/role.service';
+import { FileModule } from 'src/file/file.module';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Module({
-  providers: [OrganizationService,UserService,RoleService],
+  imports: [FileModule],
+  providers: [OrganizationService, UserService, RoleService, PrismaService],
   controllers: [OrganizationController]
 })
 export class OrganizationModule {}

@@ -49,6 +49,7 @@ export class FileService {
         // const fileUrl = `https://${bucketName}.s3.amazonaws.com/${key}`;
         return { uploadUrl, key };
     } catch (error) {
+        console.error('S3 upload error:', error);
         handlePrismaError(error);
     }
   }
