@@ -11,21 +11,15 @@ import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
 import { FileUploadDto } from './dto/upload-file.dto';
 import * as csv from 'csv-parser';
 import { Readable } from 'stream';
-import { CreateGuardDto } from 'src/guard/dto/create-guard-dto';
 import { GuardUploadDto } from './dto/guard-upload.dto';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { off } from 'process';
 
 @Injectable()
 export class FileService {
-
-
-
-
-
   private readonly s3: S3Client;
+  private readonly bucketName = 'guardsos-bucket-2025';
 
   constructor(private readonly prisma: PrismaService) {
     if (!process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY) {
@@ -46,54 +40,46 @@ export class FileService {
 
   async getPresignedUrl(dto: FileUploadDto) {
     try {
-        const bucketName = guardsos-bucket-2025;
-        if (!bucketName) {
-            throw new Error('AWS S3 bucket name is not configured');
-        }
+      // Sanitize filename and create unique key
+      const sanitizedFileName = dto.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const key = `uploads/${Date.now()}-${sanitizedFileName}`;
 
-        // Sanitize filename and create unique key
-        const sanitizedFileName = dto.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const key = `uploads/${Date.now()}-${sanitizedFileName}`;
+      console.log('Generating presigned URL for:', {
+        bucket: this.bucketName,
+        key: key,
+        contentType: dto.fileType,
+      });
 
-        console.log('Generating presigned URL for:', {
-            bucket: bucketName,
-            key: key,
-            contentType: dto.fileType
-        });
+      const params: PutObjectCommandInput = {
+        Bucket: this.bucketName,
+        Key: key,
+        ContentType: dto.fileType,
+      };
 
-        const params: PutObjectCommandInput = {
-            Bucket: bucketName,
-            Key: key,
-            ContentType: dto.fileType,
-        };
+      const command = new PutObjectCommand(params);
+      const uploadUrl = await getSignedUrl(this.s3, command, {
+        expiresIn: 3600, // 1 hour expiration
+      });
 
-        const command = new PutObjectCommand(params);
-        const uploadUrl = await getSignedUrl(this.s3, command, { 
-            expiresIn: 3600  // 1 hour expiration
-        });
-
-        console.log('Generated presigned URL successfully');
-        return { uploadUrl, key };
+      console.log('Generated presigned URL successfully');
+      return { uploadUrl, key };
     } catch (error) {
-        console.error('Failed to generate S3 presigned URL:', error);
-        if (error instanceof Error) {
-            throw new Error(`Failed to generate upload URL: ${error.message}`);
-        }
-        throw new Error('Failed to generate upload URL');
+      console.error('Failed to generate S3 presigned URL:', error);
+      if (error instanceof Error) {
+        throw new Error(`Failed to generate upload URL: ${error.message}`);
+      }
+      throw new Error('Failed to generate upload URL');
     }
   }
 
-
   async getSecureDownloadUrl(key: string): Promise<string> {
-    const bucketName = guardsos-bucket-2025;
     const command = new GetObjectCommand({
-      Bucket: bucketName,
+      Bucket: this.bucketName,
       Key: key,
     });
 
-    return await getSignedUrl(this.s3, command, { expiresIn: 1240 }); 
+    return await getSignedUrl(this.s3, command, { expiresIn: 1240 });
   }
-
 
   async parseCSV(buffer: Buffer): Promise<any[]> {
     const results: any[] = [];
@@ -107,13 +93,12 @@ export class FileService {
     });
   }
 
-
-  async uploadGuards(organizationId : string, officeId : string , buffer: Buffer){
+  async uploadGuards(organizationId: string, officeId: string, buffer: Buffer) {
     try {
-      const guardsList = await this.parseCSV(buffer); 
+      const guardsList = await this.parseCSV(buffer);
 
       const validatedGuards: GuardUploadDto[] = [];
-      const errorsList : any[] = [];
+      const errorsList: any[] = [];
 
       for (const [index, guardData] of guardsList.entries()) {
         const guardDto = plainToInstance(GuardUploadDto, guardData);
@@ -122,7 +107,7 @@ export class FileService {
         if (errors.length > 0) {
           errorsList.push({
             row: index + 1,
-            errors: errors.map(e => ({
+            errors: errors.map((e) => ({
               property: e.property,
               constraints: e.constraints,
             })),
@@ -137,59 +122,54 @@ export class FileService {
       if (errorsList.length > 0) {
         return { success: false, errors: errorsList };
       }
-      
-        
-        const createGuardsDto = validatedGuards.map((guard) => {
-          const {
-            referenceName,
-            referenceFatherName,
-            referenceCnicNumber,
-            ...rest
-          } = guard;
 
-          return {
-            ...rest,
-            organizationId,
-            officeId : officeId["officeId"],
-            serviceNumber: Number(guard.serviceNumber),
-            height: Number(guard.height),
-            dateOfBirth: new Date(guard.dateOfBirth).toISOString(),
-            cnicIssueDate: new Date(guard.cnicIssueDate).toISOString(),
-            cnicExpiryDate: new Date(guard.cnicExpiryDate).toISOString(),
-            references: [
-              {
-                fullName: referenceName,
-                fatherName: referenceFatherName,
-                cnicNumber: referenceCnicNumber,
-              },
-            ],
-          };
-        });
-
-        // return createGuardsDto;
-
-        const createdGuards =  await Promise.all(
-          createGuardsDto.map((g) =>
-              this.prisma.guard.create({
-                data: {
-                  ...g,
-                  references: {
-                    create:  g.references, 
-                  },
-                },
-              })
-            )
-          );
-  
+      const createGuardsDto = validatedGuards.map((guard) => {
+        const {
+          referenceName,
+          referenceFatherName,
+          referenceCnicNumber,
+          ...rest
+        } = guard;
 
         return {
-          success: true,
-          message: `${createdGuards.length} guards created successfully.`,
-          data: createdGuards,
+          ...rest,
+          organizationId,
+          officeId: officeId['officeId'],
+          serviceNumber: Number(guard.serviceNumber),
+          height: Number(guard.height),
+          dateOfBirth: new Date(guard.dateOfBirth).toISOString(),
+          cnicIssueDate: new Date(guard.cnicIssueDate).toISOString(),
+          cnicExpiryDate: new Date(guard.cnicExpiryDate).toISOString(),
+          references: [
+            {
+              fullName: referenceName,
+              fatherName: referenceFatherName,
+              cnicNumber: referenceCnicNumber,
+            },
+          ],
         };
-      
+      });
+
+      const createdGuards = await Promise.all(
+        createGuardsDto.map((g) =>
+          this.prisma.guard.create({
+            data: {
+              ...g,
+              references: {
+                create: g.references,
+              },
+            },
+          }),
+        ),
+      );
+
+      return {
+        success: true,
+        message: `${createdGuards.length} guards created successfully.`,
+        data: createdGuards,
+      };
     } catch (error) {
-     handlePrismaError(error) 
+      handlePrismaError(error);
     }
   }
 }
