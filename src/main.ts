@@ -13,7 +13,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      "https://glorious-guide-q75q59vqq947fxr5x-3000.app.github.dev"
+      "https://portal.guardsos.com"
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true, // only if you send cookies or auth headers
