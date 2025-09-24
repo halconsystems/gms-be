@@ -33,10 +33,21 @@ export class GuardService {
           academic: { create: data.academic },
           drivingLicense: { create: data.drivingLicense },
           guardExperience: { create: data.guardExperience },
-          references: { create: data.references },
+          references: data.references ? {
+            create: data.references.map(ref => ({
+              fullName: ref.name || '',
+              fatherName: ref.fatherName || '',
+              cnicNumber: ref.cnicNumber || '',
+              contactNumber: ref.contactNumber || '',
+              currentAddress: ref.currentAddress || '',
+              permanentAddress: ref.permanentAddress || '',
+              cnicFront: ref.cnicFront || '',
+              cnicBack: ref.cnicBack || ''
+            }))
+          } : undefined,
           bankAccount: { create: data.bankAccount },
           guardDocuments: { create : data.guardDocuments },
-          biometric: { create: data.biometric },
+          biometric: data.biometric ? { create: data.biometric } : undefined,
         },
         include: {
           academic: true,
@@ -342,7 +353,17 @@ export class GuardService {
       });
   
       await this.prisma.reference.createMany({
-        data: references.map((ref) => ({ ...ref, guardId: id })),
+        data: references.map((ref) => ({
+          guardId: id,
+          fullName: ref.name || '',
+          fatherName: ref.fatherName || '',
+          cnicNumber: ref.cnicNumber || '',
+          contactNumber: ref.contactNumber || '',
+          currentAddress: ref.currentAddress || '',
+          permanentAddress: ref.permanentAddress || '',
+          cnicFront: ref.cnicFront || '',
+          cnicBack: ref.cnicBack || ''
+        })),
       });
     }
     

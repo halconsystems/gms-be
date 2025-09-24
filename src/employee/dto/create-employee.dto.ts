@@ -78,10 +78,11 @@ export class CreateEmployeeExperienceDto {
     @IsArray() @Type(() => CreateEmployeeExperienceDto)
     employeeExperience: CreateEmployeeExperienceDto[];
   
-    @ApiProperty({ type: [CreateReferenceDto] })
+    @ApiPropertyOptional({ type: [CreateReferenceDto] })
+    @IsOptional()
     @ValidateNested()
     @IsArray() @Type(() => CreateReferenceDto)
-    references: CreateReferenceDto[];
+    references?: CreateReferenceDto[];
   
     @ApiProperty({ type: () => CreateBankAccountDto })
     @ValidateNested()
@@ -93,9 +94,10 @@ export class CreateEmployeeExperienceDto {
     @Type(() => CreateEmployeeDocumentsDto )
     employeeDocuments: CreateEmployeeDocumentsDto;
   
-    @ApiProperty({ type: () => CreateBiometricDto })
+    @ApiPropertyOptional({ type: () => CreateBiometricDto })
+    @IsOptional()
     @ValidateNested()
     @Type(() => CreateBiometricDto)
-    biometric: CreateBiometricDto;
+    biometric?: CreateBiometricDto;
   }
   

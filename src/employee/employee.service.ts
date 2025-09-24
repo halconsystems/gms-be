@@ -15,8 +15,9 @@ export class EmployeeService {
 
   constructor(private readonly prisma: PrismaService, private readonly user: UserService) {}
 
-  async create(data: CreateEmployeeDto,organizationId : string ) {
+  async create(data: CreateEmployeeDto, organizationId: string) {
     try {
+      // Get next service number
       const lastEmployee = await this.prisma.employee.findFirst({
         where: { organizationId },
         orderBy: { serviceNumber: 'desc' },
@@ -24,43 +25,69 @@ export class EmployeeService {
 
       const nextServiceNumber = lastEmployee ? lastEmployee.serviceNumber + 1 : 1;
 
-      return this.prisma.employee.create({
-      data: {
+      // Prepare create data object
+      const createData: any = {
         ...data,
         serviceNumber: nextServiceNumber,
-        userId : null,
+        userId: null,
         organizationId,
-        academic: {
-          create: data.academic,
-        },
-        drivingLicense: {
-          create: data.drivingLicense,
-        },
-        employeeExperience: {
-          create: data.employeeExperience,
-        },
-        references: {
-          create: data.references,
-        },
-        bankAccount: {
-          create: data.bankAccount,
-        },
-        employeeDocuments: {
-          create: data.employeeDocuments,
-        },
-        biometric: {
-          create: data.biometric,
-        },
-      },
-      include: {
-        academic: true,
-        drivingLicense: true,
-        employeeExperience: true,
-        references: true,
-        bankAccount: true,
-        biometric: true,
-      },
-    });
+      };
+
+      // Add relations if they exist
+      if (data.academic) {
+        createData.academic = { create: data.academic };
+      }
+
+      if (data.drivingLicense) {
+        createData.drivingLicense = { create: data.drivingLicense };
+      }
+
+      if (data.bankAccount) {
+        createData.bankAccount = { create: data.bankAccount };
+      }
+
+      if (data.employeeDocuments) {
+        createData.employeeDocuments = { create: data.employeeDocuments };
+      }
+
+      // Handle optional relations with proper checks
+      if (Array.isArray(data.employeeExperience) && data.employeeExperience.length > 0) {
+        createData.employeeExperience = { create: data.employeeExperience };
+      }
+
+      if (Array.isArray(data.references) && data.references.length > 0) {
+        createData.references = {
+          create: data.references.map(ref => ({
+            fullName: ref.name || '',
+            fatherName: ref.fatherName || '',
+            cnicNumber: ref.cnicNumber || '',
+            contactNumber: ref.contactNumber || '',
+            currentAddress: ref.currentAddress || '',
+            permanentAddress: ref.permanentAddress || '',
+            cnicFront: ref.cnicFront || '',
+            cnicBack: ref.cnicBack || ''
+          }))
+        };
+      }
+
+      // Handle optional biometric data
+      if (data.biometric && Object.values(data.biometric).some(value => value !== '')) {
+        createData.biometric = { create: data.biometric };
+      }
+
+      // Create employee with prepared data
+      return await this.prisma.employee.create({
+        data: createData,
+        include: {
+          academic: true,
+          drivingLicense: true,
+          employeeExperience: true,
+          references: true,
+          bankAccount: true,
+          biometric: true,
+          employeeDocuments: true
+        }
+      });
     } catch (error) {
       handlePrismaError(error);
     }
@@ -185,13 +212,27 @@ export class EmployeeService {
       });
     }
   
-    if (biometric) {
-      await this.prisma.biometric.update({
-        where: { guardId: id },
-        data: biometric,
+    // Handle optional biometric data
+    if (biometric && Object.values(biometric).some(value => value !== '')) {
+      const existingBiometric = await this.prisma.biometric.findUnique({
+        where: { guardId: id }
       });
+      
+      if (existingBiometric) {
+        await this.prisma.biometric.update({
+          where: { guardId: id },
+          data: biometric,
+        });
+      } else {
+        await this.prisma.biometric.create({
+          data: {
+            ...biometric,
+            guardId: id
+          }
+        });
+      }
     }
-  
+
     if (employeeExperience && employeeExperience.length > 0) {
       await this.prisma.employeeExperience.deleteMany({
         where: { employeeId: id },
@@ -203,12 +244,24 @@ export class EmployeeService {
     }
   
     if (references && references.length > 0) {
+      // First delete existing references
       await this.prisma.reference.deleteMany({
         where: { guardId: id },
       });
   
+      // Then create new references with the correct field mapping
       await this.prisma.reference.createMany({
-        data: references.map((ref) => ({ ...ref, guardId: id })),
+        data: references.map((ref) => ({
+          guardId: id,
+          fullName: ref.name || '', // Map name to fullName
+          fatherName: ref.fatherName || '',
+          cnicNumber: ref.cnicNumber || '',
+          contactNumber: ref.contactNumber || '',
+          currentAddress: ref.currentAddress || '',
+          permanentAddress: ref.permanentAddress || '',
+          cnicFront: ref.cnicFront || '',
+          cnicBack: ref.cnicBack || ''
+        })),
       });
     }
     

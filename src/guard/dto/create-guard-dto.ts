@@ -33,19 +33,17 @@ import {
     @ApiPropertyOptional() @IsOptional() @IsString() recentCivilEmployment: string;
   }
   
-  export class CreateReferenceDto {
-    @ApiPropertyOptional() @IsOptional() @IsString() fullName: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() fatherName: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() cnicNumber: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() cnicFront: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() cnicBack: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() contactNumber: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() relationship: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() currentAddress: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() permanentAddress: string;
-  }
-  
-  export class CreateBankAccountDto {
+export class CreateReferenceDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() fatherName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() cnicNumber?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() contactNumber?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() currentAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() permanentAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() cnicFront?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() cnicBack?: string;
+  @IsOptional() @IsString() guardId?: string;
+}  export class CreateBankAccountDto {
     @ApiPropertyOptional() @IsOptional() @IsString() bankName: string;
     @ApiPropertyOptional() @IsOptional() @IsString() bankCode: string;
     @ApiPropertyOptional() @IsOptional() @IsString() accountTitle: string;
@@ -82,18 +80,18 @@ import {
 
   
   export class CreateBiometricDto {
-    @ApiProperty() @IsString() rightThumb: string;
-    @ApiProperty() @IsString() rightMiddleFinger: string;
-    @ApiProperty() @IsString() rightLittleFinger: string;
-    @ApiProperty() @IsString() leftThumb: string;
-    @ApiProperty() @IsString() leftMiddleFinger: string;
-    @ApiProperty() @IsString() leftLittleFinger: string;
-    @ApiProperty() @IsString() rightForeFinger: string;
-    @ApiProperty() @IsString() rightRingFinger: string;
-    @ApiProperty() @IsString() rightFourFinger: string;
-    @ApiProperty() @IsString() leftFourFinger: string;
-    @ApiProperty() @IsString() leftRingFinger: string;
-    @ApiProperty() @IsString() leftForeFinger: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() rightThumb?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() rightMiddleFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() rightLittleFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() leftThumb?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() leftMiddleFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() leftLittleFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() rightForeFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() rightRingFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() rightFourFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() leftFourFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() leftRingFinger?: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() leftForeFinger?: string;
   }
   
   export class CreateGuardDto {
@@ -152,10 +150,12 @@ import {
     @IsArray() @Type(() => CreateExperienceDto)
     guardExperience: CreateExperienceDto[];
   
-    @ApiProperty({ type: [CreateReferenceDto] })
+    @ApiPropertyOptional({ type: [CreateReferenceDto], required: false })
+    @IsOptional()
     @ValidateNested()
-    @IsArray() @Type(() => CreateReferenceDto)
-    references: CreateReferenceDto[];
+    @IsArray() 
+    @Type(() => CreateReferenceDto)
+    references?: CreateReferenceDto[];
   
     @ApiProperty({ type: () => CreateBankAccountDto })
     @ValidateNested()  
@@ -167,10 +167,11 @@ import {
     @Type(() => CreateDocumentsDto )
     guardDocuments: CreateDocumentsDto;
 
-    @ApiProperty({ type: () => CreateBiometricDto })
+    @ApiPropertyOptional({ type: () => CreateBiometricDto })
+    @IsOptional()
     @ValidateNested()
     @Type(() => CreateBiometricDto)
-    biometric: CreateBiometricDto;
+    biometric?: CreateBiometricDto;
   }
   
 
