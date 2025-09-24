@@ -82,18 +82,18 @@ import {
 
   
   export class CreateBiometricDto {
-    @ApiPropertyOptional() @IsOptional() @IsString() rightThumb: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() rightMiddleFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() rightLittleFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() leftThumb: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() leftMiddleFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() leftLittleFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() rightForeFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() rightRingFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() rightFourFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() leftFourFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() leftRingFinger: string;
-    @ApiPropertyOptional() @IsOptional() @IsString() leftForeFinger: string;
+    @ApiProperty() @IsString() rightThumb: string;
+    @ApiProperty() @IsString() rightMiddleFinger: string;
+    @ApiProperty() @IsString() rightLittleFinger: string;
+    @ApiProperty() @IsString() leftThumb: string;
+    @ApiProperty() @IsString() leftMiddleFinger: string;
+    @ApiProperty() @IsString() leftLittleFinger: string;
+    @ApiProperty() @IsString() rightForeFinger: string;
+    @ApiProperty() @IsString() rightRingFinger: string;
+    @ApiProperty() @IsString() rightFourFinger: string;
+    @ApiProperty() @IsString() leftFourFinger: string;
+    @ApiProperty() @IsString() leftRingFinger: string;
+    @ApiProperty() @IsString() leftForeFinger: string;
   }
   
   export class CreateGuardDto {

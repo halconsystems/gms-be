@@ -24,6 +24,8 @@ import { CreateOrganizationBankAccountDto } from './dto/create-bank-account.dto'
 
 @ApiTags('Organizations')
 @Controller('organizations')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
 export class OrganizationController {
   constructor(private readonly organizationService: OrganizationService) {}
 

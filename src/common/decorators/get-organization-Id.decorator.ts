@@ -1,9 +1,19 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
 export const GetOrganizationId = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest();
-    // Extract organizationId from user object in JWT token
-    return request.user.organizationId;
+    
+    if (!request.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    const organizationId = request.user.organizationId;
+    
+    if (!organizationId) {
+      throw new UnauthorizedException('User does not belong to an organization');
+    }
+
+    return organizationId;
   },
 );

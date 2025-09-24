@@ -160,14 +160,40 @@ export class OrganizationService {
 
   // Get Offices
   async getOffices(organizationId: string) {
-    if (!organizationId) {
-      throw new NotFoundException('Organization ID missing');
-    }
+    try {
+      if (!organizationId) {
+        throw new NotFoundException('Organization ID missing');
+      }
 
-    return this.prisma.office.findMany({
-      where: { organizationId },
-      include: { organization: true },
-    });
+      // First verify the organization exists
+      const organization = await this.prisma.organization.findUnique({
+        where: { id: organizationId },
+      });
+
+      if (!organization) {
+        throw new NotFoundException(`Organization with ID ${organizationId} not found`);
+      }
+
+      const offices = await this.prisma.office.findMany({
+        where: { organizationId },
+        include: { organization: true },
+      });
+
+      return offices;
+    } catch (error) {
+      console.error('Error fetching offices:', {
+        organizationId,
+        error: error.message,
+      });
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Failed to fetch offices. Please try again later.'
+      );
+    }
   }
 
   // Get All Bank Accounts

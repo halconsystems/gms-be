@@ -16,9 +16,9 @@ export class CreateEmployeeExperienceDto {
 
   export class CreateEmployeeDocumentsDto {
     @IsOptional() @IsUUID() employeeId?: string;
-    @ApiProperty() @IsString() picture: string;
-    @ApiProperty() @IsString() cnicFront: string;
-    @ApiProperty() @IsString() cnicBack: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() picture: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() cnicFront: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() cnicBack: string;
     @ApiPropertyOptional() @IsOptional() @IsString() licenseFront: string;
     @ApiPropertyOptional() @IsOptional() @IsString() licenseBack: string;
   }  
@@ -33,9 +33,9 @@ export class CreateEmployeeExperienceDto {
 
     @ApiPropertyOptional() @IsString() fatherName: string;
     @ApiPropertyOptional() @IsDateString() dateOfBirth: string;
-    @ApiProperty() @IsString() cnicNumber: string;
-    @ApiProperty() @IsDateString() cnicIssueDate: string;
-    @ApiProperty() @IsDateString() cnicExpiryDate: string;
+    @ApiPropertyOptional() @IsOptional() @IsString() cnicNumber: string;
+    @ApiPropertyOptional() @IsOptional() @IsDateString() cnicIssueDate: string;
+    @ApiPropertyOptional() @IsOptional() @IsDateString() cnicExpiryDate: string;
   
     @ApiPropertyOptional() @IsOptional() @IsString() currentAddress: string;
     @ApiPropertyOptional() @IsOptional() @IsString() permanentAddress: string;
