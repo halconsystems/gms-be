@@ -63,20 +63,23 @@ export class CreateEmployeeExperienceDto {
     @ApiPropertyOptional() @IsOptional() @IsString() kinCNIC: string;
     @ApiPropertyOptional() @IsOptional() @IsString() kinContactNumber: string;
   
-    @ApiProperty({ type: () => CreateAcademicDto })
+    @ApiPropertyOptional({ type: () => CreateAcademicDto })
+    @IsOptional()
     @ValidateNested()
     @Type(() => CreateAcademicDto)
-    academic: CreateAcademicDto;
+    academic?: CreateAcademicDto;
   
-    @ApiProperty({ type: () => CreateDrivingLicenseDto })
+    @ApiPropertyOptional({ type: () => CreateDrivingLicenseDto })
+    @IsOptional()
     @ValidateNested() 
     @Type(() => CreateDrivingLicenseDto)
-    drivingLicense: CreateDrivingLicenseDto;
+    drivingLicense?: CreateDrivingLicenseDto;
   
-    @ApiProperty({ type: [CreateEmployeeExperienceDto] })
+    @ApiPropertyOptional({ type: [CreateEmployeeExperienceDto] })
+    @IsOptional()
     @ValidateNested()
     @IsArray() @Type(() => CreateEmployeeExperienceDto)
-    employeeExperience: CreateEmployeeExperienceDto[];
+    employeeExperience?: CreateEmployeeExperienceDto[];
   
     @ApiPropertyOptional({ type: [CreateReferenceDto] })
     @IsOptional()
@@ -84,15 +87,17 @@ export class CreateEmployeeExperienceDto {
     @IsArray() @Type(() => CreateReferenceDto)
     references?: CreateReferenceDto[];
   
-    @ApiProperty({ type: () => CreateBankAccountDto })
+    @ApiPropertyOptional({ type: () => CreateBankAccountDto })
+    @IsOptional()
     @ValidateNested()
     @Type(() => CreateBankAccountDto)
-    bankAccount: CreateBankAccountDto;
+    bankAccount?: CreateBankAccountDto;
 
-    @ApiProperty({ type: () => CreateEmployeeDocumentsDto })
+    @ApiPropertyOptional({ type: () => CreateEmployeeDocumentsDto })
+    @IsOptional()
     @ValidateNested()
     @Type(() => CreateEmployeeDocumentsDto )
-    employeeDocuments: CreateEmployeeDocumentsDto;
+    employeeDocuments?: CreateEmployeeDocumentsDto;
   
     @ApiPropertyOptional({ type: () => CreateBiometricDto })
     @IsOptional()

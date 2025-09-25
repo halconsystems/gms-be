@@ -33,7 +33,7 @@ export class EmployeeService {
         organizationId,
       };
 
-      // Add relations if they exist
+            // Add relations if they exist
       if (data.academic) {
         createData.academic = { create: data.academic };
       }
@@ -51,28 +51,35 @@ export class EmployeeService {
       }
 
       // Handle optional relations with proper checks
-      if (Array.isArray(data.employeeExperience) && data.employeeExperience.length > 0) {
-        createData.employeeExperience = { create: data.employeeExperience };
+      if (Array.isArray(data.employeeExperience)) {
+        createData.employeeExperience = data.employeeExperience.length > 0 
+          ? { create: data.employeeExperience }
+          : undefined;
       }
 
-      if (Array.isArray(data.references) && data.references.length > 0) {
-        createData.references = {
-          create: data.references.map(ref => ({
-            fullName: ref.name || '',
-            fatherName: ref.fatherName || '',
-            cnicNumber: ref.cnicNumber || '',
-            contactNumber: ref.contactNumber || '',
-            currentAddress: ref.currentAddress || '',
-            permanentAddress: ref.permanentAddress || '',
-            cnicFront: ref.cnicFront || '',
-            cnicBack: ref.cnicBack || ''
-          }))
-        };
+      // Handle references - properly handle empty array case
+      if (Array.isArray(data.references)) {
+        createData.references = data.references.length > 0 
+          ? {
+              create: data.references.map(ref => ({
+                fullName: ref.name || '',
+                fatherName: ref.fatherName || '',
+                cnicNumber: ref.cnicNumber || '',
+                contactNumber: ref.contactNumber || '',
+                currentAddress: ref.currentAddress || '',
+                permanentAddress: ref.permanentAddress || '',
+                cnicFront: ref.cnicFront || '',
+                cnicBack: ref.cnicBack || ''
+              }))
+            }
+          : undefined;
       }
 
       // Handle optional biometric data
-      if (data.biometric && Object.values(data.biometric).some(value => value !== '')) {
-        createData.biometric = { create: data.biometric };
+      if (data.biometric) {
+        // Only create biometric if at least one field has a value
+        const hasBiometricData = Object.values(data.biometric).some(value => value !== '' && value !== undefined && value !== null);
+        createData.biometric = hasBiometricData ? { create: data.biometric } : undefined;
       }
 
       // Create employee with prepared data
