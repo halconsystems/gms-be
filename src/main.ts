@@ -12,12 +12,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: 'https://portal.guardsos.com', // Allow all origins in development
+    origin: 'https://portal.guardsos.com', 
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
-
 
 
   dotenv.config();
