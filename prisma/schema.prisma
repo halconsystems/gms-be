@@ -8,7 +8,6 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(uuid()) @db.Uuid
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   isActive      Boolean       @default(true)
@@ -16,6 +15,7 @@ model User {
   password      String
   userName      String
   profileImage  String?
+  id            String        @id @default(uuid()) @db.Uuid
   employees     Employee[]
   organizations Organization? @relation("UserOrganization")
   userOffice    UserOffice[]
@@ -23,11 +23,11 @@ model User {
 }
 
 model Role {
-  id        String     @id @default(uuid()) @db.Uuid
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   isActive  Boolean    @default(true)
   roleName  String
+  id        String     @id @default(uuid()) @db.Uuid
   userRoles UserRole[] @relation("RoleUserRoles")
 }
 
@@ -47,15 +47,15 @@ model Organization {
   updatedAt        DateTime                  @updatedAt
   isActive         Boolean                   @default(true)
   organizationName String
+  userId           String                    @unique @db.Uuid
   organizationLogo String?
+  addressLine1     String
+  addressLine2     String?
   city             String
-  province         String
   email            String                    @unique
   phoneNumber1     String
   phoneNumber2     String?
-  addressLine1     String
-  addressLine2     String?
-  userId           String                    @unique @db.Uuid
+  province         String
   client           Client[]
   employee         Employee[]
   guard            Guard[]
@@ -70,17 +70,17 @@ model Office {
   id               String       @id @default(uuid()) @db.Uuid
   organizationId   String       @db.Uuid
   province         String
-  branchName       String       @default("N/A")
-  branchCode       Int          @default(autoincrement())
-  city             String       @default("N/A")
   contactNumber    String
-  contactNumberOpt String?
   email            String
   address          String
-  addressOpt       String?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   isActive         Boolean      @default(true)
+  addressOpt       String?
+  city             String       @default("N/A")
+  branchName       String       @default("N/A")
+  contactNumberOpt String?
+  branchCode       Int          @default(autoincrement())
   guard            Guard[]
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userOffice       UserOffice[]
@@ -129,22 +129,18 @@ model Employee {
   id                 String               @id @default(uuid()) @db.Uuid
   userId             String?              @db.Uuid
   organizationId     String               @db.Uuid
-  serviceNumber      Int
   registrationDate   DateTime?
   fullName           String
   fatherName         String?
   dateOfBirth        DateTime?
   cnicNumber         String               @unique
   cnicIssueDate      DateTime
-  cnicExpiryDate     DateTime
-  contactNumber      String               @default("N/A")
   currentAddress     String?
   permanentAddress   String?
-  religion           String?
-  religionSect       String?              @default("N/A")
-  bloodGroup         String?
   weight             Float?
   height             Float
+  religion           String?
+  bloodGroup         String?
   bloodPressure      String?
   heartBeat          String?
   eyeColor           String?
@@ -153,12 +149,16 @@ model Employee {
   sessiNumber        String?
   kinName            String?
   kinFatherName      String?
-  kinRelation        String?              @default("N/A")
   kinCNIC            String?
+  serviceNumber      Int
+  cnicExpiryDate     DateTime
+  contactNumber      String               @default("N/A")
   kinContactNumber   String?              @default("N/A")
+  religionSect       String?              @default("N/A")
+  kinRelation        String?              @default("N/A")
   createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @default(now()) @updatedAt
   isActive           Boolean              @default(true)
+  updatedAt          DateTime             @default(now()) @updatedAt
   academic           Academic?
   assignedSupervisor AssignedSupervisor[]
   bankAccount        BankAccount?
@@ -172,28 +172,19 @@ model Employee {
 }
 
 model Guard {
-  id                         String             @id @default(uuid()) @db.Uuid
-  organizationId             String             @db.Uuid
-  officeId                   String?            @db.Uuid
-  serviceNumber              Int
-  registrationDate           DateTime?          @default(now())
+  id                         String               @id @default(uuid()) @db.Uuid
+  organizationId             String               @db.Uuid
+  registrationDate           DateTime?            @default(now())
   fullName                   String
   fatherName                 String?
   dateOfBirth                DateTime?
-  cnicNumber                 String             @unique
+  cnicNumber                 String               @unique
   cnicIssueDate              DateTime
-  cnicExpiryDate             DateTime?
-  contactNumber              String             @default("N/A")
   currentAddress             String?
   permanentAddress           String?
-  currentAreaPoliceStation   String?            @default("N/A")
-  currentAreaPoliceContact   String?            @default("N/A")
-  permanentAreaPoliceStation String?            @default("N/A")
-  permanentAreaPoliceContact String?            @default("N/A")
   weight                     Float?
   height                     Float
   religion                   String?
-  religionSect               String?            @default("N/A")
   bloodGroup                 String?
   bloodPressure              String?
   heartBeat                  String?
@@ -203,19 +194,29 @@ model Guard {
   sessiNumber                String?
   kinName                    String?
   kinFatherName              String?
-  kinRelation                String             @default("N/A")
   kinCNIC                    String?
-  kinContactNumber           String?            @default("N/A")
-  createdAt                  DateTime           @default(now())
-  updatedAt                  DateTime           @default(now()) @updatedAt
-  isActive                   Boolean            @default(true)
+  serviceNumber              Int
+  cnicExpiryDate             DateTime?
+  contactNumber              String               @default("N/A")
+  currentAreaPoliceContact   String?              @default("N/A")
+  currentAreaPoliceStation   String?              @default("N/A")
+  kinRelation                String               @default("N/A")
+  permanentAreaPoliceContact String?              @default("N/A")
+  permanentAreaPoliceStation String?              @default("N/A")
+  religionSect               String?              @default("N/A")
+  kinContactNumber           String?              @default("N/A")
+  officeId                   String?              @db.Uuid
+  createdAt                  DateTime             @default(now())
+  isActive                   Boolean              @default(true)
+  updatedAt                  DateTime             @default(now()) @updatedAt
   academic                   Academic?
   assignedGuard              AssignedGuard[]
+  assignedSupervisors        AssignedSupervisor[]
   bankAccount                BankAccount?
   biometric                  Biometric?
   drivingLicense             DrivingLicense?
-  office                     Office?            @relation(fields: [officeId], references: [id], onDelete: Cascade)
-  organization               Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  office                     Office?              @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  organization               Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   guardAllowances            GuardAllowances[]
   guardDeductions            GuardDeductions[]
   guardDocuments             GuardDocuments?
@@ -227,10 +228,10 @@ model Guard {
 model Academic {
   id                String    @id @default(uuid()) @db.Uuid
   employeeId        String?   @unique @db.Uuid
-  guardId           String?   @unique @db.Uuid
   lastEducation     String?
   institute         String?
   hasDrivingLicense Boolean?
+  guardId           String?   @unique @db.Uuid
   employee          Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   guard             Guard?    @relation(fields: [guardId], references: [id], onDelete: Cascade)
 }
@@ -238,11 +239,11 @@ model Academic {
 model DrivingLicense {
   id                       String    @id @default(uuid()) @db.Uuid
   employeeId               String?   @unique @db.Uuid
-  guardId                  String?   @unique @db.Uuid
   drivingLicenseNo         String?
   drivingLicenseIssueDate  DateTime?
   drivingLicenseExpiryDate DateTime?
   licenseIssueCity         String?
+  guardId                  String?   @unique @db.Uuid
   employee                 Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   guard                    Guard?    @relation(fields: [guardId], references: [id], onDelete: Cascade)
 }
@@ -251,7 +252,6 @@ model GuardExperience {
   id                       String  @id @default(uuid()) @db.Uuid
   guardId                  String? @db.Uuid
   isExServiceMen           Boolean
-  rankName                 String?
   exServiceDischargeNumber String?
   armyNumber               String?
   branch                   String?
@@ -261,6 +261,7 @@ model GuardExperience {
   place                    String?
   unit                     String?
   recentCivilEmployment    String?
+  rankName                 String?
   guard                    Guard?  @relation(fields: [guardId], references: [id], onDelete: Cascade)
 }
 
@@ -276,16 +277,16 @@ model EmployeeExperience {
 model Reference {
   id               String    @id @default(uuid()) @db.Uuid
   employeeId       String?   @db.Uuid
-  guardId          String?   @db.Uuid
   fullName         String
   fatherName       String?
   cnicNumber       String
-  cnicFront        String?   @default("N/A")
-  cnicBack         String?   @default("N/A")
   contactNumber    String?
   relationship     String?
   currentAddress   String?
   permanentAddress String?
+  guardId          String?   @db.Uuid
+  cnicBack         String?   @default("N/A")
+  cnicFront        String?   @default("N/A")
   employee         Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   guard            Guard?    @relation(fields: [guardId], references: [id], onDelete: Cascade)
 }
@@ -293,14 +294,14 @@ model Reference {
 model BankAccount {
   id            String    @id @default(uuid()) @db.Uuid
   employeeId    String?   @unique @db.Uuid
-  guardId       String?   @unique @db.Uuid
   bankName      String?
   bankCode      String?
   accountNumber String?
-  accountTitle  String?
   IBAN          String?
   branchCode    String?
   branch        String?
+  guardId       String?   @unique @db.Uuid
+  accountTitle  String?
   employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   guard         Guard?    @relation(fields: [guardId], references: [id], onDelete: Cascade)
 }
@@ -344,7 +345,6 @@ model GuardDocuments {
 model Biometric {
   id                String    @id @default(uuid()) @db.Uuid
   employeeId        String?   @unique @db.Uuid
-  guardId           String?   @unique @db.Uuid
   rightThumb        String?
   rightMiddleFinger String?
   rightLittleFinger String?
@@ -356,6 +356,7 @@ model Biometric {
   rightFourFinger   String?
   leftFourFinger    String?
   leftRingFinger    String?
+  guardId           String?   @unique @db.Uuid
   leftForeFinger    String    @default("Left Fore Finger")
   employee          Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   guard             Guard?    @relation(fields: [guardId], references: [id], onDelete: Cascade)
@@ -364,8 +365,6 @@ model Biometric {
 model Client {
   id                     String               @id @default(uuid()) @db.Uuid
   organizationId         String               @db.Uuid
-  contractNumber         Int                  @default(autoincrement())
-  contractFile           String?              @default("N/A")
   recruitmentDate        DateTime
   companyName            String
   industry               String
@@ -386,7 +385,9 @@ model Client {
   createdAt              DateTime             @default(now())
   updatedAt              DateTime             @updatedAt
   isActive               Boolean              @default(true)
-  assignedSupervisor     AssignedSupervisor[]
+  contractFile           String?              @default("N/A")
+  contractNumber         Int                  @default(autoincrement())
+  assignedSupervisors    AssignedSupervisor[]
   organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   location               Location[]
 }
@@ -414,10 +415,7 @@ model locationType {
 model Location {
   id                          String                    @id @default(uuid()) @db.Uuid
   organizationId              String                    @db.Uuid
-  officeId                    String?                   @db.Uuid
   clientId                    String                    @db.Uuid
-  locationTypeId              String?                   @db.Uuid
-  createdLocationId           String
   locationName                String
   address                     String
   city                        String
@@ -428,8 +426,11 @@ model Location {
   authorizedPersonNumber      String?
   authorizedPersonDesignation String?
   createdAt                   DateTime                  @default(now())
-  updatedAt                   DateTime                  @updatedAt
+  createdLocationId           String
   isActive                    Boolean                   @default(true)
+  locationTypeId              String?                   @db.Uuid
+  updatedAt                   DateTime                  @updatedAt
+  officeId                    String?                   @db.Uuid
   assignedGuard               AssignedGuard[]
   assignedSupervisor          AssignedSupervisor[]
   guardDeductions             GuardDeductions[]
@@ -450,10 +451,10 @@ model RequestedGuard {
   guardCategoryId String                 @db.Uuid
   quantity        Int
   shiftId         String                 @db.Uuid
-  gazettedHoliday Int?
+  allowance       Float
   chargesPerMonth Float
   overtimePerHour Float
-  allowance       Float
+  gazettedHoliday Int?
   assignedGuard   AssignedGuard[]
   guardAllowances GuardAllowances[]
   finances        RequestedGuardFinance?
@@ -468,9 +469,9 @@ model RequestedGuardFinance {
   id               String         @id @default(uuid()) @db.Uuid
   requestedGuardId String         @unique @db.Uuid
   salaryPerMonth   Float
-  gazettedHoliday  Int?
-  overtimePerHour  Float
   allowance        Float
+  overtimePerHour  Float
+  gazettedHoliday  Int?
   requestedGuard   RequestedGuard @relation(fields: [requestedGuardId], references: [id], onDelete: Cascade)
 
   @@map("requested_guard_finances")
@@ -488,14 +489,14 @@ model LocationTaxes {
 
 model AssignedGuard {
   id               String         @id @default(uuid()) @db.Uuid
-  requestedGuardId String         @db.Uuid
   guardId          String         @db.Uuid
-  guardCategoryId  String         @db.Uuid
   locationId       String         @db.Uuid
+  requestedGuardId String         @db.Uuid
   deploymentDate   DateTime
   deploymentTill   DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+  guardCategoryId  String         @db.Uuid
   guardCategory    GuardCategory  @relation(fields: [guardCategoryId], references: [id], onDelete: Cascade)
   guard            Guard          @relation(fields: [guardId], references: [id], onDelete: Cascade)
   location         Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
@@ -505,15 +506,17 @@ model AssignedGuard {
 model AssignedSupervisor {
   id             String    @id @default(uuid()) @db.Uuid
   locationId     String    @db.Uuid
-  employeeId     String    @db.Uuid
+  employeeId     String?   @db.Uuid
   clientId       String    @db.Uuid
   deploymentDate DateTime
   deploymentTill DateTime?
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  guardId        String?   @db.Uuid
   client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee       Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  guard          Guard?    @relation(fields: [guardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   location       Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
 }
 
@@ -535,14 +538,14 @@ model GuardsAttendance {
 model GuardAllowances {
   id                        String                  @id @default(uuid()) @db.Uuid
   guardId                   String                  @db.Uuid
-  requestedGuardId          String                  @db.Uuid
-  locationPayrollDurationId String                  @db.Uuid
   allowancePercentage       Float
   holidayCount              Int
   overTimeCount             Int
-  isActive                  Boolean                 @default(true)
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
+  isActive                  Boolean                 @default(true)
+  requestedGuardId          String                  @db.Uuid
+  locationPayrollDurationId String                  @db.Uuid
   guard                     Guard                   @relation(fields: [guardId], references: [id], onDelete: Cascade)
   duration                  LocationPayRollDuration @relation(fields: [locationPayrollDurationId], references: [id], onDelete: Cascade)
   requestedGuard            RequestedGuard          @relation(fields: [requestedGuardId], references: [id], onDelete: Cascade)
@@ -565,12 +568,12 @@ model LocationPayRollDuration {
 model GuardDeductions {
   id            String        @id @default(uuid()) @db.Uuid
   guardId       String        @db.Uuid
-  locationId    String        @db.Uuid
   deductionType DeductionType
   amount        Float
   date          DateTime
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  locationId    String        @db.Uuid
   guard         Guard         @relation(fields: [guardId], references: [id], onDelete: Cascade)
   location      Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
 }

@@ -18,6 +18,20 @@ async function main() {
     }
   }
 
+  // Seed default shifts if they don't exist
+  console.log('🌱 Starting shifts seeding...');
+  const defaultShifts = ['Morning', 'Evening', 'Night'];
+  for (const shiftName of defaultShifts) {
+    const existingShift = await prisma.shift.findFirst({ where: { shiftName } });
+    if (!existingShift) {
+      await prisma.shift.create({ data: { shiftName } });
+      console.log(`✅ Shift created: ${shiftName}`);
+    } else {
+      console.log(`⚡ Shift already exists: ${shiftName}`);
+    }
+  }
+
+
   console.log('🎉 Seeding completed!');
 }
 

@@ -470,56 +470,130 @@ export class GuardService {
 
 
   async getAssignedGuardByGuardId(guardId: string, organizationId: string ) {
-      try {
-          const assignedGuard = await this.prisma.assignedGuard.findFirst({
-            where: { 
-              guardId: guardId,
-              location : {
-                organizationId : organizationId
-              } 
-            },
+    try {
+      if (!organizationId) {
+        console.error('[getAssignedGuardByGuardId] Missing organizationId');
+        throw new ForbiddenException('Organization ID is required');
+      }
+      if (!guardId) {
+        console.error('[getAssignedGuardByGuardId] Missing guardId');
+        throw new ForbiddenException('Guard ID is required');
+      }
+      const assignedGuard = await this.prisma.assignedGuard.findFirst({
+        where: {
+          guardId: guardId,
+          location: {
+            organizationId: organizationId,
+          },
+        },
+        include: {
+          location: {
             include: {
-              location: {
-                include : {
-                  client : {
-                    select : {
-                      id : true,
-                      companyName : true,
-                      contractNumber : true,
-                    }
-                  }
-                }
+              client: {
+                select: {
+                  id: true,
+                  companyName: true,
+                  contractNumber: true,
+                },
               },
-              
             },
-          });
+          },
+        },
+      });
 
-          if (!assignedGuard) return null;
+      if (!assignedGuard) {
+        throw new NotFoundException('Assigned guard not found for this organization and guard ID');
+      }
 
-          if (assignedGuard.deploymentDate) {
-            const deploymentDate = new Date(assignedGuard.deploymentDate);
-            const deploymentTill = assignedGuard.deploymentTill
-              ? new Date(assignedGuard.deploymentTill)
-              : new Date();
+      let totalWorkingDays: number | null = null;
+      if (assignedGuard.deploymentDate) {
+        const deploymentDate = new Date(assignedGuard.deploymentDate);
+        const deploymentTill = assignedGuard.deploymentTill
+          ? new Date(assignedGuard.deploymentTill)
+          : new Date();
+        const timeDiff = deploymentTill.getTime() - deploymentDate.getTime();
+        totalWorkingDays = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+      }
 
-            const timeDiff = deploymentTill.getTime() - deploymentDate.getTime();
-            const daysWorked = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-
-            return {
-              ...assignedGuard,
-              totalWorkingDays: daysWorked,
-            };
-          }
-
-          return {
-            ...assignedGuard,
-            totalWorkingDays: null,
-          };
-        } catch (error) {
-          handlePrismaError(error);
-        }
+      // Flatten and return relevant info for frontend best practice
+      return {
+        id: assignedGuard.id,
+        guardId: assignedGuard.guardId,
+        locationId: assignedGuard.locationId,
+        requestedGuardId: assignedGuard.requestedGuardId,
+        deploymentDate: assignedGuard.deploymentDate,
+        deploymentTill: assignedGuard.deploymentTill,
+        guardCategoryId: assignedGuard.guardCategoryId,
+        totalWorkingDays,
+        clientName: assignedGuard.location?.client?.companyName || null,
+        clientContractNumber: assignedGuard.location?.client?.contractNumber || null,
+        locationName: assignedGuard.location?.locationName || null,
+      };
+    } catch (error) {
+      handlePrismaError(error);
+      // Defensive: If handlePrismaError does not throw, throw generic error
+      throw new ForbiddenException('Failed to fetch assigned guard');
     }
+  }
   //#endregion 
+
+    /**
+     * Promote an assigned guard to supervisor: assigns 'guardSupervisor' role to guard's user, creates assignment record
+     */
+    async promoteGuardToSupervisor(guardId: string, dto: any, organizationId: string) {
+      // 1. Find the guard
+      const guard = await this.prisma.guard.findUnique({ where: { id: guardId, organizationId } });
+      if (!guard) throw new NotFoundException("Guard doesn't exist for this organization");
+
+
+      // 2. Get the userId linked to this guard (if exists)
+      // If guard has a userId field, assign supervisor role (skip if not present)
+      if ('userId' in guard && typeof guard['userId'] === 'string' && guard['userId']) {
+        const userId: string = guard['userId'];
+        const supervisorRole = await this.prisma.role.findFirst({ where: { roleName: 'guardSupervisor' } });
+        if (supervisorRole) {
+          const existingUserRole = await this.prisma.userRole.findFirst({ where: { userId: userId, roleId: supervisorRole.id } });
+          if (!existingUserRole) {
+            await this.prisma.userRole.create({ data: { userId: userId, roleId: supervisorRole.id } });
+          }
+        }
+      }
+
+      // 5. Create assignment record in assignedSupervisor table
+      // Validate required fields in dto
+      if (!dto.locationId || !dto.clientId) throw new NotFoundException("locationId and clientId are required in body");
+
+      // Check if already assigned as supervisor for this location/client
+        const alreadyAssigned = await this.prisma.assignedSupervisor.findFirst({
+          where: {
+            guardId: guard.id,
+            locationId: dto.locationId,
+            clientId: dto.clientId,
+            deploymentTill: null
+          }
+        });
+      if (alreadyAssigned) {
+        return { message: "Guard is already assigned as supervisor for this location and client", assignedSupervisor: alreadyAssigned };
+      }
+
+      // Create assignment
+        const assignSupervisor = await this.prisma.assignedSupervisor.create({
+          data: {
+            locationId: dto.locationId,
+            guardId: guard.id,
+            employeeId: null,
+            clientId: dto.clientId,
+            deploymentDate: new Date(),
+          },
+          include: {
+            location: true,
+            client: true,
+            guard: true
+          }
+        });
+
+      return { message: "Guard promoted to supervisor and assigned successfully", assignedSupervisor: assignSupervisor };
+    }
 }
 
 

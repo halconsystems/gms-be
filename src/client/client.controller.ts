@@ -2,6 +2,8 @@ import {
     Controller, Get, Post, Body, Patch, Param, Delete,
     UseGuards,
     Req,
+    ConflictException,
+    BadRequestException
   } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/common/guards/jwt-guard';
@@ -23,8 +25,33 @@ export class ClientController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("organizationAdmin")
   @ResponseMessage('Client created successfully')
-  create(@Body() createClientDto: CreateClientDto, @GetOrganizationId() organizationId: string) {
-    return this.clientService.create(createClientDto, organizationId);
+  async create(@Body() createClientDto: CreateClientDto, @GetOrganizationId() organizationId: string) {
+    try {
+      const result = await this.clientService.create(createClientDto, organizationId);
+      return { 
+        success: true, 
+        data: result,
+        message: 'Client created successfully'
+      };
+    } catch (error) {
+      console.error('Error in client creation:', error);
+      
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      
+      if (error.message.includes('Numeric overflow') || error.message.includes('too large')) {
+        throw new BadRequestException('Contract number is too large. Please use a smaller number.');
+      }
+
+      if (error.code === 'P2002') {
+        throw new ConflictException('A client with this information already exists');
+      }
+
+      // Log detailed error for debugging
+      console.error('Detailed error:', JSON.stringify(error, null, 2));
+      throw new BadRequestException(error.message || 'Failed to create client. Please check your input and try again.');
+    }
   }
 
   @Get()

@@ -14,6 +14,7 @@ import { Roles } from 'src/common/decorators/role.decorator';
 import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.decorator';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { AssignGuardDto } from './dto/assigned-guard-dto';
+import { AssignSupervisorDto } from '../employee/dto/assign-supervisor.dto';
 import { RolesEnum } from 'src/common/enums/roles-enum';
   
 @ApiTags("Guards")
@@ -82,6 +83,18 @@ export class GuardController {
   }
 
   //#region : ASSIGN GUARD
+    @Post('promote-to-supervisor/:guardId')
+    @ApiBearerAuth('jwt')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RolesEnum.organizationAdmin)
+    @ResponseMessage('Guard promoted to supervisor successfully')
+    async promoteGuardToSupervisor(
+      @Param('guardId') guardId: string,
+      @Body() dto: AssignSupervisorDto,
+      @GetOrganizationId() organizationId: string
+    ) {
+      return this.guardService.promoteGuardToSupervisor(guardId, dto, organizationId);
+    }
   @Post('assign-guard')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)

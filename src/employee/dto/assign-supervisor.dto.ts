@@ -7,10 +7,10 @@ export class AssignSupervisorDto {
   @IsUUID()
   locationId: string;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsUUID()
-  employeeId: string;
+  guardId?: string;
 
   @ApiProperty()
   @IsNotEmpty()
