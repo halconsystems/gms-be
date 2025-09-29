@@ -1,3 +1,4 @@
+// ...existing code...
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateGuardDto } from './dto/create-guard-dto';
@@ -11,6 +12,115 @@ import { AssignGuardDto } from './dto/assigned-guard-dto';
 @Injectable()
 export class GuardService {
   constructor(  private readonly fileService: FileService , private readonly prisma: PrismaService) {}
+
+  async bulkUploadGuards(organizationId: string, officeId: string, guards: any[]) {
+    if (!Array.isArray(guards) || guards.length === 0) {
+      return { success: false, message: 'No guards data provided.' };
+    }
+    // Validate and map guards
+    const requiredFields = ['fullName', 'cnicNumber', 'cnicIssueDate', 'height', 'serviceNumber'];
+    const now = new Date();
+    type GuardInput = {
+      id?: string;
+      organizationId: string;
+      officeId?: string;
+      registrationDate?: Date;
+      fullName: string;
+      fatherName?: string;
+      dateOfBirth?: Date | null;
+      cnicNumber: string;
+      cnicIssueDate: Date;
+      currentAddress?: string;
+      permanentAddress?: string;
+      weight?: number | null;
+      height: number;
+      religion?: string;
+      bloodGroup?: string;
+      bloodPressure?: string;
+      heartBeat?: string;
+      eyeColor?: string;
+      disability?: string;
+      eobiNumber?: string;
+      sessiNumber?: string;
+      kinName?: string;
+      kinFatherName?: string;
+      kinCNIC?: string;
+      serviceNumber: number;
+      cnicExpiryDate?: Date | null;
+      contactNumber?: string;
+      currentAreaPoliceContact?: string;
+      currentAreaPoliceStation?: string;
+      kinRelation?: string;
+      permanentAreaPoliceContact?: string;
+      permanentAreaPoliceStation?: string;
+      religionSect?: string;
+      kinContactNumber?: string;
+      createdAt: Date;
+      isActive: boolean;
+      updatedAt: Date;
+    };
+    const guardsToCreate: GuardInput[] = [];
+    const errors: { row: number; missing: string[] }[] = [];
+    for (let i = 0; i < guards.length; i++) {
+      const g = guards[i];
+      const missing = requiredFields.filter(f => !g[f]);
+      if (missing.length > 0) {
+        errors.push({ row: i + 1, missing });
+        continue;
+      }
+      guardsToCreate.push({
+        id: undefined,
+        organizationId,
+        officeId,
+        registrationDate: g.registrationDate ? new Date(g.registrationDate) : now,
+        fullName: g.fullName,
+        fatherName: g.fatherName || '',
+        dateOfBirth: g.dateOfBirth ? new Date(g.dateOfBirth) : null,
+        cnicNumber: g.cnicNumber,
+        cnicIssueDate: new Date(g.cnicIssueDate),
+        currentAddress: g.currentAddress || '',
+        permanentAddress: g.permanentAddress || '',
+        weight: g.weight ? Number(g.weight) : null,
+        height: Number(g.height),
+        religion: g.religion || '',
+        bloodGroup: g.bloodGroup || '',
+        bloodPressure: g.bloodPressure || '120/80',
+        heartBeat: g.heartBeat || '',
+        eyeColor: g.eyeColor || '',
+        disability: g.disability || '',
+        eobiNumber: g.eobiNumber || '',
+        sessiNumber: g.sessiNumber || '',
+        kinName: g.kinName || '',
+        kinFatherName: g.kinFatherName || '',
+        kinCNIC: g.kinCNIC || '',
+        serviceNumber: Number(g.serviceNumber),
+        cnicExpiryDate: g.cnicExpiryDate ? new Date(g.cnicExpiryDate) : null,
+        contactNumber: g.contactNumber || 'N/A',
+        currentAreaPoliceContact: g.currentAreaPoliceContact || 'N/A',
+        currentAreaPoliceStation: g.currentAreaPoliceStation || 'N/A',
+        kinRelation: g.kinRelation || 'N/A',
+        permanentAreaPoliceContact: g.permanentAreaPoliceContact || 'N/A',
+        permanentAreaPoliceStation: g.permanentAreaPoliceStation || 'N/A',
+        religionSect: g.religionSect || 'N/A',
+        kinContactNumber: g.kinContactNumber || 'N/A',
+        createdAt: now,
+        isActive: true,
+        updatedAt: now,
+      });
+    }
+    if (errors.length > 0) {
+      return { success: false, errors };
+    }
+    try {
+      const result = await this.prisma.guard.createMany({
+        data: guardsToCreate,
+        skipDuplicates: true,
+      });
+      return { success: true, count: result.count };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
 
   async create(data: CreateGuardDto, organizationId: string) {
     try {
