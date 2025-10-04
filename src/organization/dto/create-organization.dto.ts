@@ -4,6 +4,8 @@ import {
   IsOptional,
   IsEmail,
   MinLength,
+  IsArray,
+  ArrayNotEmpty,
 } from 'class-validator';
 import { CreateOfficeDto } from './create-office-dto';
 
@@ -58,4 +60,9 @@ export class CreateOrganizationDto {
 
   @IsOptional()
   office?: CreateOfficeDto[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  features: string[];
 }
