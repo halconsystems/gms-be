@@ -12,13 +12,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
 app.enableCors({
-  origin: (origin, callback) => {
-    callback(null, origin || '*'); // Allow any origin dynamically
-  },
+  origin: '*', // just allow everything for now to test
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 });
+
 
   dotenv.config();
 
