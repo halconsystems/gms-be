@@ -9,7 +9,12 @@ import * as dotenv from 'dotenv';
 import { BiometricService } from './biometric/biometric.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false, // Disable the default body parser
+  });
+
+  app.use(require('body-parser').json({limit: '50mb'}));
+  app.use(require('body-parser').urlencoded({limit: '50mb', extended: true}));
 
   app.enableCors({
     origin: ['https://portal.guardsos.com','http://localhost:3000'],

@@ -9,8 +9,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
 import { FileUploadDto } from './dto/upload-file.dto';
-import * as csv from 'csv-parser';
-import { Readable } from 'stream';
+import * as Papa from 'papaparse';
 import { GuardUploadDto } from './dto/guard-upload.dto';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -91,31 +90,41 @@ export class FileService {
   }
 
   async parseCSV(buffer: Buffer): Promise<any[]> {
-    const results: any[] = [];
-
     return new Promise((resolve, reject) => {
-      Readable.from(buffer)
-        .pipe(csv())
-        .on('data', (data) => results.push(data))
-        .on('end', () => resolve(results))
-        .on('error', (err) => reject(err));
+      const csvString = buffer.toString();
+      Papa.parse(csvString, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          resolve(results.data);
+        },
+        error: (error) => {
+          reject(error);
+        }
+      });
     });
   }
 
   async uploadGuards(organizationId: string, officeId: string, buffer: Buffer) {
     try {
       const guardsList = await this.parseCSV(buffer);
-
+      
+      console.log('Parsed CSV data:', guardsList); // Log parsed data
+      
       const validatedGuards: GuardUploadDto[] = [];
       const errorsList: any[] = [];
 
       for (const [index, guardData] of guardsList.entries()) {
+        console.log(`Validating guard at row ${index + 1}:`, guardData); // Log each guard data
+        
         const guardDto = plainToInstance(GuardUploadDto, guardData);
         const errors = await validate(guardDto);
 
         if (errors.length > 0) {
+          console.log(`Validation errors for row ${index + 1}:`, errors); // Log validation errors
           errorsList.push({
             row: index + 1,
+            guardData, // Include the original data
             errors: errors.map((e) => ({
               property: e.property,
               constraints: e.constraints,
@@ -128,7 +137,10 @@ export class FileService {
         }
       }
 
+      console.log('Total guards to create:', validatedGuards.length); // Log number of valid guards
+      
       if (errorsList.length > 0) {
+        console.log('Validation errors found:', errorsList); // Log all validation errors
         return { success: false, errors: errorsList };
       }
 
@@ -172,12 +184,21 @@ export class FileService {
         ),
       );
 
+      console.log('Guards created:', createdGuards.length); // Log successful creations
       return {
         success: true,
         message: `${createdGuards.length} guards created successfully.`,
         data: createdGuards,
       };
     } catch (error) {
+      console.error('Error creating guards:', error); // Log creation errors
+      if (error.code === 'P2002') {
+        return {
+          success: false,
+          message: 'Duplicate service number or CNIC found. Please check your data.',
+          error: error.meta
+        };
+      }
       handlePrismaError(error);
     }
   }

@@ -5,6 +5,7 @@ import {
     UseGuards,
     Req,
     Query,
+    BadRequestException
   } from '@nestjs/common';
   import { GuardService } from './guard.service';
 import { CreateGuardDto } from './dto/create-guard-dto';
@@ -28,12 +29,19 @@ export class GuardController {
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("organizationAdmin")
-  @ResponseMessage('Bulk guard upload')
+  @ResponseMessage('Guards uploaded successfully')
   async bulkUpload(
     @GetOrganizationId() organizationId: string,
     @Body() body: { officeId: string, guards: any[] }
   ) {
-    return this.guardService.bulkUploadGuards(organizationId, body.officeId, body.guards);
+    const result = await this.guardService.bulkUploadGuards(organizationId, body.officeId, body.guards);
+    if (!result.success) {
+      throw new BadRequestException({
+        message: result.message || 'Validation failed',
+        errors: result.errors || []
+      });
+    }
+    return result;
   }
 
   @Post()
