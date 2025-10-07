@@ -41,41 +41,49 @@ model UserRole {
   @@unique([userId, roleId])
 }
 
+model Feature {
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String                @unique @db.VarChar(255)
+  description           String?
+  createdAt            DateTime?             @default(now()) @db.Timestamp(6)
+  updatedAt            DateTime?             @default(now()) @updatedAt @db.Timestamp(6)
+  organizationFeatures  OrganizationFeature[]
+}
+
 model Organization {
-  id               String                    @id @default(uuid()) @db.Uuid
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
-  isActive         Boolean                   @default(true)
-  organizationName String
-  userId           String                    @unique @db.Uuid
-  organizationLogo String?
-  addressLine1     String
-  addressLine2     String?
-  city             String
-  email            String                    @unique
-  phoneNumber1     String
-  phoneNumber2     String?
-  province         String
-  client           Client[]
-  employee         Employee[]
-  guard            Guard[]
-  guardCategories  GuardCategory[]
-  office           Office[]
-  features         OrganizationFeature[]
-  user             User                      @relation("UserOrganization", fields: [userId], references: [id], onDelete: Cascade)
-  bankAccount      OrganizationBankAccount[]
-  userOffice       UserOffice[]
+  id                    String                @id @default(uuid()) @db.Uuid
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  isActive              Boolean               @default(true)
+  organizationName      String
+  userId                String                @unique @db.Uuid
+  organizationLogo      String?
+  province              String?
+  city                  String?
+  phoneNumber1          String?
+  phoneNumber2          String?
+  addressLine1          String?
+  addressLine2          String?
+  email                 String?
+  client                Client[]
+  employee              Employee[]
+  guard                 Guard[]
+  guardCategories       GuardCategory[]
+  office                Office[]
+  user                  User                  @relation("UserOrganization", fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount           OrganizationBankAccount[]
+  userOffice            UserOffice[]
+  organizationFeatures  OrganizationFeature[]
 }
 
 model OrganizationFeature {
-  id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @db.Uuid
-  feature        String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  featureId       String       @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature         Feature      @relation(fields: [featureId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, feature])
+  @@unique([organizationId, featureId])
 }
 
 model Office {
@@ -184,13 +192,13 @@ model Employee {
 }
 
 model Guard {
-  id                         String               @id @default(uuid()) @db.Uuid
-  organizationId             String               @db.Uuid
-  registrationDate           DateTime?            @default(now())
+  id                         String             @id @default(uuid()) @db.Uuid
+  organizationId             String             @db.Uuid
+  registrationDate           DateTime?          @default(now())
   fullName                   String
   fatherName                 String?
   dateOfBirth                DateTime?
-  cnicNumber                 String               @unique
+  cnicNumber                 String             @unique
   cnicIssueDate              DateTime
   currentAddress             String?
   permanentAddress           String?
@@ -209,26 +217,25 @@ model Guard {
   kinCNIC                    String?
   serviceNumber              Int
   cnicExpiryDate             DateTime?
-  contactNumber              String               @default("N/A")
-  currentAreaPoliceContact   String?              @default("N/A")
-  currentAreaPoliceStation   String?              @default("N/A")
-  kinRelation                String               @default("N/A")
-  permanentAreaPoliceContact String?              @default("N/A")
-  permanentAreaPoliceStation String?              @default("N/A")
-  religionSect               String?              @default("N/A")
-  kinContactNumber           String?              @default("N/A")
-  officeId                   String?              @db.Uuid
-  createdAt                  DateTime             @default(now())
-  isActive                   Boolean              @default(true)
-  updatedAt                  DateTime             @default(now()) @updatedAt
+  contactNumber              String             @default("N/A")
+  currentAreaPoliceContact   String?            @default("N/A")
+  currentAreaPoliceStation   String?            @default("N/A")
+  kinRelation                String             @default("N/A")
+  permanentAreaPoliceContact String?            @default("N/A")
+  permanentAreaPoliceStation String?            @default("N/A")
+  religionSect               String?            @default("N/A")
+  kinContactNumber           String?            @default("N/A")
+  officeId                   String?            @db.Uuid
+  createdAt                  DateTime           @default(now())
+  isActive                   Boolean            @default(true)
+  updatedAt                  DateTime           @default(now()) @updatedAt
   academic                   Academic?
   assignedGuard              AssignedGuard[]
-  assignedSupervisors        AssignedSupervisor[]
   bankAccount                BankAccount?
   biometric                  Biometric?
   drivingLicense             DrivingLicense?
-  office                     Office?              @relation(fields: [officeId], references: [id], onDelete: Cascade)
-  organization               Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  office                     Office?            @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  organization               Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   guardAllowances            GuardAllowances[]
   guardDeductions            GuardDeductions[]
   guardDocuments             GuardDocuments?
@@ -518,17 +525,15 @@ model AssignedGuard {
 model AssignedSupervisor {
   id             String    @id @default(uuid()) @db.Uuid
   locationId     String    @db.Uuid
-  employeeId     String?   @db.Uuid
+  employeeId     String    @db.Uuid
   clientId       String    @db.Uuid
   deploymentDate DateTime
   deploymentTill DateTime?
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-  guardId        String?   @db.Uuid
   client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  employee       Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  guard          Guard?    @relation(fields: [guardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   location       Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
 }
 

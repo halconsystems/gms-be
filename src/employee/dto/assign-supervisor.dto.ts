@@ -7,19 +7,18 @@ export class AssignSupervisorDto {
   @IsUUID()
   locationId: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsUUID()
-  guardId?: string;
+  employeeId: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsUUID()
   clientId: string;
 
-  // @ApiPropertyOptional()
-  // @IsOptional()
-  // @IsDateString()
-  // deploymentTill: string;
-  
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  deploymentTill?: string;
 }

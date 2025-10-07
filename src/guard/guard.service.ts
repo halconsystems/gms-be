@@ -676,7 +676,7 @@ export class GuardService {
       // Check if already assigned as supervisor for this location/client
         const alreadyAssigned = await this.prisma.assignedSupervisor.findFirst({
           where: {
-            guardId: guard.id,
+            employeeId: guard.id,
             locationId: dto.locationId,
             clientId: dto.clientId,
             deploymentTill: null
@@ -690,15 +690,14 @@ export class GuardService {
         const assignSupervisor = await this.prisma.assignedSupervisor.create({
           data: {
             locationId: dto.locationId,
-            guardId: guard.id,
-            employeeId: null,
+            employeeId: guard.id, // Use guard ID as employee ID since guards can be supervisors
             clientId: dto.clientId,
             deploymentDate: new Date(),
           },
           include: {
             location: true,
             client: true,
-            guard: true
+            employee: true
           }
         });
 

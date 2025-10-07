@@ -1,10 +1,5 @@
-import { 
-  Injectable, 
-  Logger, 
-  NotFoundException, 
-  UnauthorizedException, 
-  InternalServerErrorException 
-} from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
+import type { User, UserRole, Role, UserOffice, Organization, Feature } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
@@ -12,224 +7,150 @@ import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 
-import { JwtPayload, AuthResponse } from './interfaces/auth.interface';
-
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
+  constructor(private prisma: PrismaService, private jwtService: JwtService, private userService: UserService) {}
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
-    private readonly userService: UserService
-  ) {}
+  /** ---------------- USER SIGNUP ---------------- */
+  async signup(dto: CreateUserDto) {
+    const user = await this.userService.create(dto);
 
-  /**
-   * Generates a JWT payload for a user
-   */
-  private async generateTokenPayload(userId: string): Promise<JwtPayload> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          userRoles: {
-            include: { role: true }
-          },
-          userOffice: {
-            include: {
-              organization: {
-                include: { features: true }
-              }
-            }
-          }
-        }
-      });
+    const fullUser = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: { userRoles: { include: { role: true } }, userOffice: true },
+    });
 
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
+    if (!fullUser) throw new NotFoundException('User not found');
 
-      this.logger.log(`[LOGIN DEBUG] User ID: ${user.id}`);
-      const role = user.userRoles[0]?.role.roleName || 'user';
-      this.logger.log(`[LOGIN DEBUG] Role: ${role}`);
-      const isSuperAdmin = role === 'superAdmin';
-      let organizationId: string | undefined = undefined;
-      let features: string[] = [];
+    const roleName = fullUser.userRoles[0].role.roleName;
+    const organizationId = fullUser.userOffice.length > 0 ? fullUser.userOffice[0].organizationId : null;
 
-      if (isSuperAdmin) {
-        const { ALL_FEATURES } = await import('../common/constants/features');
-        features = ALL_FEATURES;
-        this.logger.log(`[LOGIN DEBUG] Superadmin ${user.email} granted all features: ${JSON.stringify(features)}`);
-      } else {
-        try {
-          // Fetch organization by userId for org admins
-          const org = await this.prisma.organization.findFirst({
-            where: { userId: user.id },
-            include: { features: true }
-          });
-          organizationId = org?.id;
-          this.logger.log(`[LOGIN DEBUG] Queried org for userId ${user.id}: ${JSON.stringify(org)}`);
-          features = org?.features?.map(f => f.feature) || [];
-          this.logger.log(`[LOGIN DEBUG] Extracted features array: ${JSON.stringify(features)}`);
-          if (!org) {
-            this.logger.warn(`[LOGIN DEBUG] Organization not found for userId ${user.id}`);
-          }
-        } catch (err) {
-          this.logger.error(`[LOGIN DEBUG] Prisma org feature query failed for userId ${user.id}:`, err);
-          features = [];
-        }
-      }
+    const token = this.jwtService.sign({ userId: fullUser.id, email: fullUser.email, roleName, organizationId });
 
-      this.logger.log(`[LOGIN DEBUG] Returning features: ${JSON.stringify(features)}`);
-      return {
-        sub: user.id,
-        email: user.email,
-        role,
-        organizationId,
-        features,
-        isSuperAdmin
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error generating token payload for user ${userId}:`,
-        error
-      );
-      throw new InternalServerErrorException('Error generating auth token');
-    }
+    return { user: fullUser, token: token };
   }
 
-  /**
-   * USER SIGNUP
-   */
-  async signup(dto: CreateUserDto): Promise<AuthResponse> {
+  /** ---------------- USER LOGIN ---------------- */
+  async login(dto: LoginDto) {
     try {
-      this.logger.log(`Processing signup for email: ${dto.email}`);
-
-      const user = await this.userService.create(dto);
-      const payload = await this.generateTokenPayload(user.id);
-      const token = this.jwtService.sign(payload);
-
-      this.logger.log(`Signup successful for user: ${user.email}`);
-
-      return {
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          userName: user.userName,
-          role: payload.role,
-          organizationId: payload.organizationId,
-          features: payload.features,
-          isSuperAdmin: payload.isSuperAdmin
-        }
-      };
-    } catch (error) {
-      this.logger.error(`Signup failed:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * USER LOGIN
-   */
-  async login(dto: LoginDto): Promise<AuthResponse> {
-    try {
+      // Find user with roles and direct organization relation first
       const user = await this.prisma.user.findUnique({
         where: { email: dto.email },
         include: {
-          userRoles: {
-            include: { role: true }
+          userRoles: { 
+            include: { 
+              role: true 
+            } 
           },
-          userOffice: {
-            include: {
+          organizations: true, // Direct organization relation
+          userOffice: { 
+            include: { 
               organization: {
-                include: { features: true }
+                include: {
+                  organizationFeatures: {
+                    include: {
+                      feature: true
+                    }
+                  }
+                }
               }
             }
           }
         }
       });
 
-      if (!user) {
-        this.logger.warn(`Login failed: User not found for email ${dto.email}`);
-        throw new NotFoundException('User not found');
+      if (!user) throw new NotFoundException('User not found');
+      
+      console.log('Debug user data:', {
+        userId: user.id,
+        userRoles: user.userRoles?.map(ur => ur.role?.roleName),
+        hasDirectOrg: !!user.organizations,
+        userOfficeCount: user.userOffice?.length,
+        firstOffice: user.userOffice?.[0] ? {
+          officeId: user.userOffice[0].officeId,
+          orgId: user.userOffice[0].organizationId
+        } : null
+      });
+      
+      // Debug logs to trace the issue
+      console.log('User found:', { 
+        id: user.id,
+        email: user.email,
+        userOfficeCount: user.userOffice?.length,
+        hasUserOffice: !!user.userOffice?.length,
+        firstOfficeOrgId: user.userOffice?.[0]?.organizationId,
+        organization: user.userOffice?.[0]?.organization
+      });
+
+      const valid = await bcrypt.compare(dto.password, user.password);
+      if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+      // Check if user is superadmin using case-insensitive comparison
+      const isSuperAdmin = user.userRoles?.some(
+        ur => ur.role?.roleName?.toLowerCase() === 'superadmin'
+      );
+
+      // Try to get organization from both possible relations
+      const organization = user.organizations || user.userOffice?.[0]?.organization;
+      const organizationId = organization?.id || user.userOffice?.[0]?.organizationId;
+
+      console.log('Organization resolution:', {
+        fromDirectRelation: user.organizations?.organizationName,
+        fromUserOffice: user.userOffice?.[0]?.organization?.organizationName,
+        finalOrgId: organizationId
+      });
+      
+      // Get features based on user role
+      let features: string[] = [];
+      
+      if (isSuperAdmin) {
+        // Super admins get access to all features
+        const allFeatures = await this.prisma.feature.findMany();
+        features = allFeatures.map(f => f.name);
+        console.log('Superadmin features:', features);
+      } else if (organizationId) {
+        // Regular users: fetch features directly from OrganizationFeature table
+        const orgFeatures = await this.prisma.organizationFeature.findMany({
+          where: { organizationId },
+          include: { feature: true }
+        });
+        features = orgFeatures.map(of => of.feature.name);
+        console.log('Organization features for org:', organizationId, features);
+      } else {
+        console.log('No organization found for user:', user.id);
       }
 
-      const validPassword = await bcrypt.compare(dto.password, user.password);
-      if (!validPassword) {
-        this.logger.warn(`Login failed: Invalid password for email ${dto.email}`);
-        throw new UnauthorizedException('Invalid credentials');
-      }
+      const roleName = user.userRoles?.[0]?.role?.roleName ?? 'user';
 
-      let features: string[] | undefined = undefined;
-      let role: string | undefined = undefined;
-      let isSuperAdmin: boolean = false;
-      let organizationId: string | undefined = undefined;
-      try {
-        role = user.userRoles[0]?.role.roleName || 'user';
-        isSuperAdmin = role === 'superAdmin';
-      } catch (err) {
-        this.logger.error(`Role resolution failed for user ${user.email}:`, err);
-        return {
-          token: '',
-          user: {
-            id: user.id,
-            email: user.email,
-            userName: user.userName,
-            role: undefined,
-            organizationId: undefined,
-            features: [],
-            isSuperAdmin: false
-          }
-        };
-      }
+      // Generate JWT token with user info and features
+      const token = this.jwtService.sign({ 
+        userId: user.id, 
+        email: user.email, 
+        roleName, 
+        organizationId,
+        features 
+      });
 
-      if (!isSuperAdmin) {
-        try {
-          const organization = user.userOffice[0]?.organization;
-          organizationId = organization?.id;
-          if (!organization) {
-            this.logger.warn(`No organization found for user ${user.email}`);
-            features = [];
-          } else {
-            try {
-              features = organization.features?.map(f => f.feature).filter(Boolean) || [];
-            } catch (featureErr) {
-              this.logger.error(`Feature fetch failed for org ${organizationId}:`, featureErr);
-              features = [];
-            }
-          }
-        } catch (orgErr) {
-          this.logger.error(`Organization lookup failed for user ${user.email}:`, orgErr);
-          features = [];
-        }
-      }
-
-      const payload = await this.generateTokenPayload(user.id);
-      const token = this.jwtService.sign(payload);
-
-      this.logger.log(`Login successful for user: ${user.email}`);
-
-      // Response construction
-      const response: AuthResponse = {
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
+      // Format login response with defensive null checks
+      return { 
+        token: token, // Changed from token to accessToken
+        user: { 
+          id: user.id, 
           userName: user.userName,
-          role: payload.role,
-          organizationId: payload.organizationId,
-          isSuperAdmin: payload.isSuperAdmin,
-          features: Array.isArray(payload.features) ? payload.features : []
+          email: user.email, 
+          organizationId,
+          organizationName: organization?.organizationName ?? null,
+          features,
+          roleName,
+          isSuperAdmin
         }
       };
-      return response;
     } catch (error) {
+      console.error('Login error:', error);
       if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
         throw error;
       }
-      this.logger.error(`Login failed for email ${dto.email}:`, error);
-      throw new InternalServerErrorException('Login failed');
+      throw new InternalServerErrorException('Login failed. Please try again.');
     }
   }
 }

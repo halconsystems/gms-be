@@ -297,16 +297,18 @@ export class EmployeeService {
         const client = await this.prisma.client.findUnique({where : { id : dto.clientId, organizationId : organizationId }});
         if(!location) throw new NotFoundException("Location doesn't exist for this organization");
         if(!client) throw new NotFoundException("Client doesn't exist for this organization");
-        //constraints ?
+
         const assignSupervisor =  await this.prisma.assignedSupervisor.create({ 
           data : { 
-            ...dto,
-            deploymentDate: new Date(), 
+            locationId: dto.locationId,
+            clientId: dto.clientId,
+            employeeId: dto.employeeId,
+            deploymentDate: new Date()
           }, 
           include : { 
             location : true, 
             client: true,
-            guard: true
+            employee: true
           }
         });
         return assignSupervisor;

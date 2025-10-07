@@ -10,6 +10,7 @@ import {
 import { CreateOfficeDto } from './create-office-dto';
 
 export class CreateOrganizationDto {
+  [key: string]: any; // Add index signature to allow string indexing
   @IsString()
   @IsOptional()
   organizationId?: string;

@@ -23,57 +23,30 @@ import { CreateOfficeDto } from './dto/create-office-dto';
 import { CreateOrganizationBankAccountDto } from './dto/create-bank-account.dto';
 
 // Define explicit type for service response
-import { ApiResponseProperty } from '@nestjs/swagger';
-
-export class BaseResponseDto<T = any> {
-  @ApiResponseProperty()
-  success!: boolean;
-
-  @ApiResponseProperty()
-  data!: T;
-
-  @ApiResponseProperty()
-  message?: string;
-}
-
-export class UserDataDto {
-  @ApiResponseProperty()
-  id!: string;
-
-  @ApiResponseProperty()
-  email!: string;
-
-  @ApiResponseProperty()
-  userName!: string;
-
-  @ApiResponseProperty()
-  roleName!: string;
-
-  @ApiResponseProperty()
-  organizationId!: string;
-
-  @ApiResponseProperty({ type: [String] })
-  features!: string[];
-
-  @ApiResponseProperty()
-  isSuperAdmin!: boolean;
-}
-
-export class OrganizationDataDto {
-  @ApiResponseProperty()
-  id!: string;
-
-  @ApiResponseProperty()
-  name!: string;
-
-  @ApiResponseProperty({ type: [String] })
-  features!: string[];
-}
-
-export class CreateOrganizationResponseDto extends BaseResponseDto<{
-  user: UserDataDto;
-  organization: OrganizationDataDto;
-}> {}
+type CreateOrganizationResponse =
+  | {
+      data: {
+        user: {
+          id: string;
+          email: string;
+          userName: string;
+          roleName: string;
+          organizationId: string;
+          features: string[];
+          isSuperAdmin: boolean;
+        };
+        organization: {
+          id: string;
+          name: string;
+          features: string[];
+        };
+      };
+    }
+  | {
+      success: boolean;
+      data: any;
+      message: string;
+    };
 
 @ApiTags('Organizations')
 @Controller('organizations')
@@ -84,138 +57,97 @@ export class OrganizationController {
 
   @Post('register')
   @ResponseMessage('Organization registered successfully')
-  async create(@Body() dto: CreateOrganizationDto): Promise<BaseResponseDto> {
+  async create(@Body() dto: CreateOrganizationDto): Promise<CreateOrganizationResponse> {
     try {
-      console.log('[OrgController] Creating org with features:', dto.features);
-      const serviceResult = await this.organizationService.create(dto);
-      
-      const result: BaseResponseDto = {
-        success: true,
-        data: serviceResult,
-        message: 'Organization created successfully'
-      };
-      
+      console.log('Creating organization with data:', {
+        ...dto,
+        password: '[REDACTED]',
+      });
+
+      const result = await this.organizationService.create(dto);
+
+      if (
+        result &&
+        typeof result === 'object' &&
+        'data' in result &&
+        result.data &&
+        'organization' in result.data &&
+        'user' in result.data
+      ) {
+        console.log('Organization created successfully:', {
+          organizationId: (result.data as any).organization.id,
+          userId: (result.data as any).user.id,
+        });
+      } else {
+        console.log('Organization created successfully (fallback):', result);
+      }
+
       return result;
     } catch (error) {
-      console.error('[OrgController] Organization creation failed:', error);
+      console.error('Organization creation failed:', error);
       throw error;
     }
   }
 
+  @Get()
+  @Roles(RolesEnum.superAdmin)
+  findAll() {
+    return this.organizationService.findAll();
+  }
 
-  @Post('offices')
+  @Post('add-office')
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Office created successfully')
-  async addOffice(
-    @Body() dto: CreateOfficeDto,
-    @GetOrganizationId() organizationId: string,
-  ): Promise<BaseResponseDto<any>> {
-    const serviceResult = await this.organizationService.addOffice(dto, organizationId);
-    return {
-      success: true,
-      data: serviceResult,
-      message: 'Office created successfully'
-    };
+  addOffice(@Body() dto: CreateOfficeDto, @GetOrganizationId() organizationId: string) {
+    return this.organizationService.addOffice(dto, organizationId);
   }
 
-  @Post('bank-accounts')
+  @Post('add/bank-account')
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Bank Account added successfully')
-  async addBankAccount(
+  addBankAccount(
     @Body() dto: CreateOrganizationBankAccountDto,
     @GetOrganizationId() organizationId: string,
-  ): Promise<BaseResponseDto<any>> {
-    const serviceResult = await this.organizationService.addBankAccount(dto, organizationId);
-    return {
-      success: true,
-      data: serviceResult,
-      message: 'Bank account added successfully'
-    };
+  ) {
+    return this.organizationService.addBankAccount(dto, organizationId);
   }
 
-  @Get('offices')
+  @Get('get-offices')
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Offices fetched successfully')
-  async getOffices(
-    @GetOrganizationId() organizationId: string,
-  ): Promise<BaseResponseDto<any>> {
-    const serviceResult = await this.organizationService.getOffices(organizationId);
-    return {
-      success: true,
-      data: serviceResult,
-      message: 'Offices fetched successfully'
-    };
+  getOffices(@GetOrganizationId() organizationId: string) {
+    return this.organizationService.getOffices(organizationId);
   }
 
-  @Get('bank-accounts')
+  @Get('get/all/bank-accounts')
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Bank Accounts fetched successfully')
-  async getAllBankAccounts(
-    @GetOrganizationId() organizationId: string,
-  ): Promise<BaseResponseDto<any>> {
-    const serviceResult = await this.organizationService.getAllBankAccounts(organizationId);
-    return {
-      success: true,
-      data: serviceResult,
-      message: 'Bank accounts fetched successfully'
-    };
+  getAllBankAccounts(@GetOrganizationId() organizationId: string) {
+    return this.organizationService.getAllBankAccounts(organizationId);
   }
 
-  @Delete('offices/:id')
+  @Delete('delete-office/:id')
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Office deleted successfully')
-  async deleteOffice(
-    @Param('id') id: string,
-    @GetOrganizationId() organizationId: string,
-  ): Promise<BaseResponseDto<any>> {
-    const serviceResult = await this.organizationService.deleteOffice(id, organizationId);
-    return {
-      success: true,
-      data: serviceResult,
-      message: 'Office deleted successfully'
-    };
+  deleteOffice(@Param('id') id: string, @GetOrganizationId() organizationId: string) {
+    return this.organizationService.deleteOffice(id, organizationId);
   }
 
   @Get(':id')
   @Roles(RolesEnum.superAdmin)
-  async findOne(
-    @Param('id') id: string,
-  ): Promise<BaseResponseDto<any>> {
-    const serviceResult = await this.organizationService.findOne(id);
-    return {
-      success: true,
-      data: serviceResult,
-      message: 'Organization found'
-    };
+  findOne(@Param('id') id: string) {
+    return this.organizationService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(RolesEnum.superAdmin)
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateOrganizationDto,
-  ): Promise<BaseResponseDto<any>> {
-    const serviceResult = await this.organizationService.update(id, dto);
-    return {
-      success: true,
-      data: serviceResult,
-      message: 'Organization updated successfully'
-    };
+  update(@Param('id') id: string, @Body() dto: UpdateOrganizationDto) {
+    return this.organizationService.update(id, dto);
   }
 
   @Delete(':id')
   @Roles(RolesEnum.superAdmin)
-  async remove(
-    @Param('id') id: string,
-  ): Promise<BaseResponseDto<any>> {
-    const serviceResult = await this.organizationService.remove(id);
-    return {
-      success: true,
-      data: serviceResult,
-      message: 'Organization deleted successfully'
-    };
+  remove(@Param('id') id: string) {
+    return this.organizationService.remove(id);
   }
-
-
-
 }

@@ -5,11 +5,12 @@ const prisma = new PrismaClient();
 async function checkFeatureSchema() {
   try {
     // Get a sample feature to check its structure
-    const sampleFeature = await prisma.organizationFeature.findFirst({
+    // Features are now stored directly in Feature model
+    const sampleFeature = await prisma.feature.findFirst({
       select: {
         id: true,
-        organizationId: true,
-        feature: true,
+        name: true,
+        description: true,
         createdAt: true,
         updatedAt: true
       }

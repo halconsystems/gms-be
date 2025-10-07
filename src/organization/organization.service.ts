@@ -6,7 +6,22 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { CreateOrganizationDto } from './dto/create-organization.dto';
+import type { CreateOrganizationDto } from './dto/create-organization.dto';
+
+// Interface to ensure type safety for organization data
+interface OrganizationData {
+  id?: string;
+  organizationName: string;
+  province: string;
+  city: string;
+  phoneNumber1: string;
+  phoneNumber2: string | null;
+  addressLine1: string;
+  addressLine2: string | null;
+  email: string;
+  userId: string;
+  isActive: boolean;
+}
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { CreateOfficeDto } from './dto/create-office-dto';
 import { CreateOrganizationBankAccountDto } from './dto/create-bank-account.dto';
@@ -17,13 +32,7 @@ import { RolesEnum } from 'src/common/enums/roles-enum';
 export class OrganizationService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Creates a new organization with:
-   * - Organization details
-   * - Admin user
-   * - Organization-specific features
-   * - Office locations (optional)
-   */
+  // Create Organization (no logo handling for now)
   async create(dto: CreateOrganizationDto) {
     try {
       // Validate features array
@@ -31,128 +40,133 @@ export class OrganizationService {
         throw new Error('At least one feature must be provided');
       }
 
-      // Pre-check for duplicates to provide better error messages
-      const [existingOrgEmail, existingUserEmail, existingUsername] = await Promise.all([
-        this.prisma.organization.findUnique({ where: { email: dto.email } }),
-        this.prisma.user.findUnique({ where: { email: dto.email } }),
-        this.prisma.user.findFirst({ where: { userName: dto.userName } })
-      ]);
-
-      if (existingOrgEmail) {
-        throw new ConflictException('Organization with this email already exists');
-      }
-      if (existingUserEmail) {
-        throw new ConflictException('A user with this email already exists');
-      }
-      if (existingUsername) {
-        throw new ConflictException('Username already exists');
-      }
-
-      // Execute all creation steps in a transaction
-      const result = await this.prisma.$transaction(async (prisma) => {
-        // 1. Find organization admin role
-        const role = await prisma.role.findFirst({
-          where: { roleName: RolesEnum.organizationAdmin }
-        });
-        
-        if (!role) {
-          throw new NotFoundException(`Role '${RolesEnum.organizationAdmin}' not found`);
-        }
-
-        // 2. Create user with hashed password and role
-        const hashedPassword = await bcrypt.hash(dto.password, 10);
-        const newUser = await prisma.user.create({
-          data: {
-            email: dto.email,
-            password: hashedPassword,
-            userName: dto.userName,
-            userRoles: {
-              create: {
-                roleId: role.id
+      // Pre-checks for duplicates - check email in users since orgs don't have email field
+      const existingOrgAdmin = await this.prisma.user.findFirst({
+        where: { 
+          email: dto.email,
+          userRoles: {
+            some: {
+              role: {
+                roleName: RolesEnum.organizationAdmin
               }
+            }
+          }
+        }
+      });
+      if (existingOrgAdmin) throw new ConflictException('An organization admin with this email already exists');
+
+      const existingUserByEmail = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (existingUserByEmail) throw new ConflictException('A user with this email already exists');
+
+      const existingUserByUserName = await this.prisma.user.findFirst({ where: { userName: dto.userName } });
+      if (existingUserByUserName) throw new ConflictException('Username already exists');
+
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Create or get all features within the transaction
+        const features = await Promise.all(
+          dto.features.map(featureName =>
+            tx.feature.upsert({
+              where: { name: featureName },
+              create: { name: featureName },
+              update: {},
+            })
+          )
+        );
+        // Find organization admin role
+        const role = await tx.role.findFirst({ where: { roleName: RolesEnum.organizationAdmin } });
+        if (!role) throw new NotFoundException(`Role '${RolesEnum.organizationAdmin}' not found`);
+
+        // Create user
+        const hashedPassword = await bcrypt.hash(dto.password, 10);
+        const newUser = await tx.user.create({
+          data: { email: dto.email, password: hashedPassword, userName: dto.userName },
+        });
+
+        // Link role
+        await tx.userRole.create({ data: { userId: newUser.id, roleId: role.id } });
+
+        // Build organization data
+        const orgData = {
+          ...(dto.organizationId && { id: dto.organizationId }),
+          organizationName: dto.organizationName,
+          province: dto.province as string,
+          city: dto.city as string,
+          phoneNumber1: dto.phoneNumber1 as string,
+          phoneNumber2: (dto.phoneNumber2 as string) || null,
+          addressLine1: dto.addressLine1 as string,
+          addressLine2: (dto.addressLine2 as string) || null,
+          email: dto.email,
+          userId: newUser.id,
+          isActive: true,
+        };
+
+        // Create organization and link pre-created features
+        const organization = await tx.organization.create({
+          data: {
+            ...orgData,
+            organizationFeatures: {
+              create: features.map(feature => ({
+                feature: {
+                  connect: { id: feature.id }
+                }
+              }))
             }
           },
           include: {
-            userRoles: {
-              include: { role: true }
+            organizationFeatures: {
+              include: {
+                feature: true
+              }
             }
           }
         });
 
-        // 3. Create organization with its own features
-        const organization = await prisma.organization.create({
-          data: {
-            organizationName: dto.organizationName,
-            province: dto.province,
-            city: dto.city,
-            phoneNumber1: dto.phoneNumber1,
-            phoneNumber2: dto.phoneNumber2 || null,
-            addressLine1: dto.addressLine1,
-            addressLine2: dto.addressLine2 || null,
-            email: dto.email,
-            userId: newUser.id,
-            isActive: true,
-            features: {
-              create: dto.features.map(f => ({ feature: f }))
-            }
-          },
-          include: {
-            features: true,
-            user: true
-          },
-        });
-        // 5. Create offices if provided
+        // If offices are provided, create them
         if (dto.office && Array.isArray(dto.office) && dto.office.length > 0) {
-          for (const office of dto.office) {
-            await prisma.office.create({
+          for (const o of dto.office) {
+            await tx.office.create({
               data: {
-                ...office,
+                ...o,
                 organizationId: organization.id,
-                branchCode: generateRandomNumber(4)
-              }
+                branchCode: generateRandomNumber(4),
+              },
             });
           }
         }
 
-        // Map features for response
-        const userFeatures = organization.features.map((f) => f.feature);
+        // Get user with roles
+        const userWithRoles = await tx.user.findUnique({
+          where: { id: newUser.id },
+          include: { userRoles: { include: { role: true } } },
+        });
+        if (!userWithRoles) throw new NotFoundException('User not found after creation');
 
-        // 6. Return formatted response
+        // Format response
         return {
           data: {
             user: {
-              id: newUser.id,
-              email: newUser.email,
-              userName: newUser.userName,
-              roleName: newUser.userRoles[0]?.role.roleName || 'organizationAdmin',
+              id: userWithRoles.id,
+              email: userWithRoles.email,
+              userName: userWithRoles.userName,
+              roleName: userWithRoles.userRoles[0]?.role.roleName || 'organizationAdmin',
               organizationId: organization.id,
-              features: userFeatures,
-              isSuperAdmin: false
+              features: dto.features,
+              isSuperAdmin: false,
             },
             organization: {
               id: organization.id,
               name: organization.organizationName,
-              features: userFeatures
-            }
-          }
+              features: dto.features,
+            },
+          },
         };
+      }, {
+        timeout: 20000, // Increase timeout to 20 seconds
+        maxWait: 25000  // Maximum time to wait for transaction to start
       });
 
       return result;
-
     } catch (error) {
-      // Handle specific error cases
-      if (error instanceof ConflictException || error instanceof NotFoundException) {
-        throw error;
-      }
-
-      // Handle Prisma unique constraint violations
-      if (error?.code === 'P2002') {
-        const field = error.meta?.target?.[0] || 'unknown field';
-        throw new ConflictException(`${field} already exists`);
-      }
-
-      // Log unexpected errors and throw internal server error
       console.error('Organization creation error:', error);
 
       if (error instanceof ConflictException || error instanceof NotFoundException) throw error;
