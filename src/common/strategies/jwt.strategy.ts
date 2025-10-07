@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 // Define expected JWT payload shape
 interface JwtPayload {
@@ -15,13 +16,36 @@ interface JwtPayload {
   exp?: number;        // Expiration
 }
 
+type UserWithRelations = Prisma.UserGetPayload<{
+  include: {
+    userOffice: {
+      include: {
+        organization: {
+          include: {
+            organizationFeatures: {
+              include: {
+                feature: true
+              }
+            }
+          }
+        }
+      }
+    };
+    userRoles: {
+      include: {
+        role: true
+      }
+    };
+  };
+}>
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   private readonly logger = new Logger(JwtStrategy.name);
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaService & PrismaClient,
   ) {
     const jwtSecret = configService.get<string>('JWT_SECRET');
     if (!jwtSecret) {
@@ -57,7 +81,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             include: {
               organization: {
                 include: {
-                  features: true
+                  organizationFeatures: {
+                    include: {
+                      feature: true
+                    }
+                  }
                 }
               }
             }
@@ -70,40 +98,39 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         }
       });
 
-      if (!user) {
+      const validatedUser = user as UserWithRelations;
+      if (!validatedUser) {
         this.logger.error(`User not found for sub: ${payload.sub}`);
         throw new UnauthorizedException('User not found');
       }
 
       // 3. Get organization info (if not superadmin)
-      const organization = user.userOffice?.[0]?.organization;
+      const organization = validatedUser.userOffice?.[0]?.organization;
       const organizationId = organization?.id;
-      const features = organization?.features?.map(f => f.feature) || [];
+      const features = organization?.organizationFeatures?.map(f => f.feature.name) || [];
 
       // 4. Check role (superadmin doesn't need organizationId)
-      const isSuperAdmin = user.userRoles.some(ur => ur.role.roleName === 'superAdmin');
+      const isSuperAdmin = validatedUser.userRoles.some(ur => ur.role.roleName === 'superAdmin');
       
       if (!isSuperAdmin && !organizationId) {
-        this.logger.warn(`Non-superadmin user ${user.id} has no organization`);
+        this.logger.warn(`Non-superadmin user ${validatedUser.id} has no organization`);
         throw new UnauthorizedException('User has no organization access');
-      }
-
-      // 5. If no features found for organization user, log warning
+      }      // 5. If no features found for organization user, log warning
       if (!isSuperAdmin && organizationId && features.length === 0) {
         this.logger.warn(
-          `User ${user.id} organization ${organizationId} has no features`
+          `User ${validatedUser.id} organization ${organizationId} has no features`
         );
       }
 
       // 6. Return enriched user object
       // This becomes available as req.user in your controllers/decorators
       return {
-        id: user.id,
-        email: user.email,
+        id: validatedUser.id,
+        email: validatedUser.email,
         organizationId,  // Will be undefined for superadmin
         features,        // Empty array if no features
         isSuperAdmin,
-        role: user.userRoles[0]?.role.roleName || 'user',
+        role: validatedUser.userRoles[0]?.role.roleName || 'user',
         // Add any other needed user fields
       };
 
