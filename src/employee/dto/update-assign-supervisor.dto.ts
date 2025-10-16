@@ -1,7 +1,8 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { AssignSupervisorDto } from './assign-supervisor.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsDateString, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsBoolean, IsDateString, IsNotEmpty, IsOptional, IsUUID, IsInt, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateAssignSupervisorDto  {
 
@@ -10,10 +11,12 @@ export class UpdateAssignSupervisorDto  {
       @IsUUID()
       locationId: string;
     
-      @ApiProperty()
+      @ApiPropertyOptional({ description: 'Service Number of the supervisor (Guard or Employee)' })
       @IsOptional()
-      @IsUUID()
-      employeeId: string;
+      @Type(() => Number)
+      @IsInt()
+      @Min(1)
+      supervisorServiceNumber?: number;
     
       @ApiProperty()
       @IsOptional()
@@ -28,7 +31,11 @@ export class UpdateAssignSupervisorDto  {
       @ApiPropertyOptional()
       @IsOptional()
       @IsBoolean()
-      isActive: true;
+      isActive?: boolean;
 
+      @ApiPropertyOptional({ description: 'Employee ID of the supervisor (for backward compatibility)' })
+      @IsOptional()
+      @IsUUID()
+      supervisorEmployeeId?: string;
       
 }

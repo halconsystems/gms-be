@@ -5,7 +5,8 @@ import {
     UseGuards,
     Req,
     Query,
-    BadRequestException
+    BadRequestException,
+    ParseIntPipe
   } from '@nestjs/common';
   import { GuardService } from './guard.service';
 import { CreateGuardDto } from './dto/create-guard-dto';
@@ -19,6 +20,7 @@ import { ResponseMessage } from 'src/common/decorators/response-message.decorato
 import { AssignGuardDto } from './dto/assigned-guard-dto';
 import { AssignSupervisorDto } from '../employee/dto/assign-supervisor.dto';
 import { RolesEnum } from 'src/common/enums/roles-enum';
+import { PromoteSupervisorDto } from './dto/promote-supervisor.dto';
   
 @ApiTags("Guards")
 @Controller('guards')
@@ -81,7 +83,7 @@ export class GuardController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("organizationAdmin")
   @ResponseMessage('Guard fetched successfully')
-  findByServiceNumber(@Query('serviceNumber') serviceNumber: number, @GetOrganizationId() organizationId: string) {
+    findByServiceNumber(@Query('serviceNumber', ParseIntPipe) serviceNumber: number, @GetOrganizationId() organizationId: string) {
     return this.guardService.findByServiceNumber(serviceNumber,organizationId);
   }
 
@@ -105,35 +107,95 @@ export class GuardController {
   }
 
   //#region : ASSIGN GUARD
+    /**
+     * Legacy route for backward compatibility - promotes guard to supervisor by ID
+     */
     @Post('promote-to-supervisor/:guardId')
     @ApiBearerAuth('jwt')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RolesEnum.organizationAdmin)
     @ResponseMessage('Guard promoted to supervisor successfully')
-    async promoteGuardToSupervisor(
+    async promoteGuardToSupervisorLegacy(
       @Param('guardId') guardId: string,
-      @Body() dto: AssignSupervisorDto,
+      @Body() dto: PromoteSupervisorDto,
       @GetOrganizationId() organizationId: string
     ) {
-      return this.guardService.promoteGuardToSupervisor(guardId, dto, organizationId);
+      return this.guardService.promoteGuardToSupervisor(guardId, undefined, dto, organizationId);
     }
-  @Post('assign-guard')
-  @ApiBearerAuth('jwt')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("organizationAdmin")
-  @ResponseMessage('Guard assigned successfully')
-  assignGuardToLocation(@Body() dto: AssignGuardDto, @GetOrganizationId()  organizationId : string ) {
-    return this.guardService.assignGuard(dto,organizationId);
-  }
 
-  @Get('assigned-guard/:guardId')
-  @ApiBearerAuth('jwt')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("organizationAdmin")
-  @ResponseMessage('Assigned Guard fetched successfully')
-  getAssignedGuardByGuardId(@Param("guardId") guardId: string, @GetOrganizationId() organizationId : string ) {
-    return this.guardService.getAssignedGuardByGuardId(guardId, organizationId);
-  }
+    /**
+     * Promote a guard to supervisor by either ID or service number
+     */
+    @Post('promote-to-supervisor')
+    @ApiBearerAuth('jwt')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RolesEnum.organizationAdmin)
+    @ResponseMessage('Guard promoted to supervisor successfully')
+    async promoteGuardToSupervisor(
+      @Query('guardId') guardId: string | undefined,
+      @Query('serviceNumber') serviceNumberRaw: string | undefined,
+      @Query('personType') personType: 'guard' | 'employee' | undefined,
+      @Body() dto: PromoteSupervisorDto,
+      @GetOrganizationId() organizationId: string
+    ) {
+      // Validate that either guardId or serviceNumber is provided
+      if (!guardId && !serviceNumberRaw) {
+        throw new BadRequestException('Either guardId or serviceNumber must be provided');
+      }
+
+      let serviceNumber: number | undefined;
+      if (serviceNumberRaw) {
+        const parsedNumber = Number(serviceNumberRaw);
+        if (!Number.isInteger(parsedNumber)) {
+          throw new BadRequestException('Service number must be a valid integer');
+        }
+        serviceNumber = parsedNumber;
+      }
+
+      return this.guardService.promoteGuardToSupervisor(guardId, serviceNumber, dto, organizationId, personType);
+    }
+
+    /**
+     * Assign a guard to a location using either guardId or serviceNumber
+     */
+    @Post('assign-guard')
+    @ApiBearerAuth('jwt')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles("organizationAdmin")
+    @ResponseMessage('Guard assigned successfully')
+    assignGuardToLocation(
+      @Body() dto: AssignGuardDto,
+      @GetOrganizationId() organizationId: string
+    ) {
+      // Validate that either guardId or serviceNumber is provided
+      if (!dto.guardId && !dto.serviceNumber) {
+        throw new BadRequestException('Either guardId or serviceNumber must be provided');
+      }
+      return this.guardService.assignGuard(dto, organizationId);
+    }
+
+    /**
+     * Get assigned guard details by ID or service number
+     */
+    @Get('assigned-guard')
+    @ApiBearerAuth('jwt')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles("organizationAdmin")
+    @ResponseMessage('Assigned Guard fetched successfully')
+    getAssignedGuardByGuardId(
+      @GetOrganizationId() organizationId: string,
+      @Query('guardId') guardId: string | undefined,
+      @Query('serviceNumber', ParseIntPipe) serviceNumber?: number,
+    ) {
+      // Look up guard by service number if provided, otherwise use ID
+      if (serviceNumber !== undefined) {
+        return this.guardService.getAssignedGuardByServiceNumber(serviceNumber, organizationId);
+      } else if (guardId) {
+        return this.guardService.getAssignedGuardByGuardId(guardId, organizationId);
+      } else {
+        throw new BadRequestException('Either guardId or serviceNumber must be provided');
+      }
+    }
 
 
   //# SPECIAL APIS

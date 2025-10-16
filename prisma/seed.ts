@@ -31,6 +31,30 @@ async function main() {
     }
   }
 
+  // Seed default location types
+  console.log('🌱 Starting location types seeding...');
+  const defaultLocationTypes = [
+    
+    'Residential Building',
+    'Industrial Site',
+    'Retail Store',
+    'Office ',
+    'Warehouse'
+  ];
+
+  for (const type of defaultLocationTypes) {
+    const existingType = await prisma.locationType.findFirst({ 
+      where: { type } 
+    });
+    if (!existingType) {
+      await prisma.locationType.create({ 
+        data: { type } 
+      });
+      console.log(`✅ Location type created: ${type}`);
+    } else {
+      console.log(`⚡ Location type already exists: ${type}`);
+    }
+  }
 
   console.log('🎉 Seeding completed!');
 }

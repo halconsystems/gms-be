@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { GuardService } from 'src/guard/guard.service';
 import { UpdateGuardDto } from 'src/guard/dto/update-guard-dto';
 import { UserService } from 'src/user/user.service';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -13,7 +14,12 @@ import { UpdateAssignSupervisorDto } from './dto/update-assign-supervisor.dto';
 @Injectable()
 export class EmployeeService {
 
-  constructor(private readonly prisma: PrismaService, private readonly user: UserService) {}
+  constructor(
+    private readonly prisma: PrismaService, 
+    private readonly user: UserService,
+    @Inject(forwardRef(() => GuardService))
+    private readonly guardService: GuardService
+  ) {}
 
   async create(data: CreateEmployeeDto, organizationId: string) {
     try {
@@ -324,22 +330,151 @@ export class EmployeeService {
   }
 
   //#region : ASSIGN SUPERVISOR
-    async assignSupervisor(dto : AssignSupervisorDto, organizationId : string){
+      /**
+       * Check if a user has the supervisor role
+       * @param userId The user ID to check
+       * @returns true if the user has the supervisor role, false otherwise
+       */
+      async hasSupervisorRole(userId: string | null): Promise<boolean> {
+        if (!userId) return false;
+        
+        const supervisorRole = await this.prisma.role.findFirst({
+          where: { roleName: RolesEnum.supervisor }
+        });
+        
+        if (!supervisorRole) return false;
+        
+        const userRole = await this.prisma.userRole.findFirst({
+          where: {
+            userId: userId,
+            roleId: supervisorRole.id
+          }
+        });
+        
+        return !!userRole;
+      }
+    /**
+     * Assign a supervisor role and location to an Employee
+     * @param dto DTO containing supervisor assignment details
+     * @param organizationId Organization ID for security scope
+     * @remarks This endpoint only handles Employee service numbers. For Guard service numbers,
+     * use the `POST /guards/promote-to-supervisor` endpoint instead. This separation ensures
+     * clear responsibility boundaries and proper role assignment flows.
+     */
+    async assignSupervisor(dto: AssignSupervisorDto, organizationId: string) {
       try {
-        const location = await this.prisma.location.findUnique({where : { id : dto.locationId, clientId : dto.clientId ,organizationId : organizationId }});
-        const client = await this.prisma.client.findUnique({where : { id : dto.clientId, organizationId : organizationId }});
-        if(!location) throw new NotFoundException("Location doesn't exist for this organization");
-        if(!client) throw new NotFoundException("Client doesn't exist for this organization");
+        // Validate location and client
+        const location = await this.prisma.location.findUnique({
+          where: { id: dto.locationId, clientId: dto.clientId, organizationId: organizationId }
+        });
+        const client = await this.prisma.client.findUnique({
+          where: { id: dto.clientId, organizationId: organizationId }
+        });
+        
+        if (!location) throw new NotFoundException("Location doesn't exist for this organization");
+        if (!client) throw new NotFoundException("Client doesn't exist for this organization");
 
-        const assignSupervisor =  await this.prisma.assignedSupervisor.create({ 
-          data : { 
+        // Resolve employee ID (person being assigned a supervisor) from either service number or direct ID
+        let employeeId: string;
+        if (dto.serviceNumber !== undefined) {
+          // First try to find as a Guard
+          try {
+            const guard = await this.guardService.findByServiceNumber(dto.serviceNumber, organizationId);
+            if (guard) {
+              // Map guard to employee ID and create if needed
+              const resolvedEmployeeId = await this.guardService.resolveEmployeeIdForGuard(guard.id, organizationId, true);
+              if (!resolvedEmployeeId) {
+                throw new NotFoundException(`Failed to resolve employee record for guard with service number ${dto.serviceNumber}`);
+              }
+              employeeId = resolvedEmployeeId;
+            } else {
+              // If not found as guard, try as employee
+              const employee = await this.findByServiceNumber(dto.serviceNumber, organizationId);
+              if (!employee) {
+                throw new NotFoundException(`No person found with service number ${dto.serviceNumber}`);
+              }
+              employeeId = employee.id;
+            }
+          } catch (error) {
+            // If guard lookup fails, try employee
+            const employee = await this.findByServiceNumber(dto.serviceNumber, organizationId);
+            if (!employee) {
+              throw new NotFoundException(`No person found with service number ${dto.serviceNumber}`);
+            }
+            employeeId = employee.id;
+          }
+        } else if (dto.employeeId !== undefined) {
+          // Verify employee exists and belongs to organization
+          const employee = await this.prisma.employee.findFirst({
+            where: {
+              id: dto.employeeId,
+              organizationId
+            }
+          });
+          if (!employee) {
+            throw new NotFoundException(`Employee with ID ${dto.employeeId} not found in this organization`);
+          }
+          employeeId = dto.employeeId;
+        } else {
+          throw new BadRequestException("Either serviceNumber or employeeId must be provided");
+        }
+
+        // Resolve supervisor's employee ID from either service number or direct ID
+        let supervisorEmployeeId: string;
+        if (dto.supervisorServiceNumber !== undefined) {
+          // First try to find a Guard by service number
+          try {
+            const guardSupervisor = await this.guardService.findByServiceNumber(dto.supervisorServiceNumber, organizationId);
+            if (guardSupervisor) {
+              // Map guard to employee ID
+              const employeeId = await this.guardService.resolveEmployeeIdForGuard(guardSupervisor.id, organizationId, true);
+              if (!employeeId) {
+                throw new NotFoundException(`Failed to resolve employee record for guard supervisor with service number ${dto.supervisorServiceNumber}`);
+              }
+              supervisorEmployeeId = employeeId;
+            } else {
+              // If not found as guard, try as employee
+              const employeeSupervisor = await this.findByServiceNumber(dto.supervisorServiceNumber, organizationId);
+              if (!employeeSupervisor) {
+                throw new NotFoundException(`No supervisor found with service number ${dto.supervisorServiceNumber}`);
+              }
+              supervisorEmployeeId = employeeSupervisor.id;
+            }
+          } catch (error) {
+            // If guard lookup fails, try employee
+            const employeeSupervisor = await this.findByServiceNumber(dto.supervisorServiceNumber, organizationId);
+            if (!employeeSupervisor) {
+              throw new NotFoundException(`No supervisor found with service number ${dto.supervisorServiceNumber}`);
+            }
+            supervisorEmployeeId = employeeSupervisor.id;
+          }
+        } else if (dto.supervisorEmployeeId !== undefined) {
+          // Verify supervisor exists and belongs to organization
+          const supervisor = await this.prisma.employee.findFirst({
+            where: {
+              id: dto.supervisorEmployeeId,
+              organizationId
+            }
+          });
+          if (!supervisor) {
+            throw new NotFoundException(`Supervisor with ID ${dto.supervisorEmployeeId} not found in this organization`);
+          }
+          supervisorEmployeeId = dto.supervisorEmployeeId;
+        } else {
+          throw new BadRequestException("Either supervisorServiceNumber or supervisorEmployeeId must be provided");
+        }
+
+        const assignSupervisor = await this.prisma.assignedSupervisor.create({
+          data: {
             locationId: dto.locationId,
             clientId: dto.clientId,
-            employeeId: dto.employeeId,
-            deploymentDate: new Date()
-          }, 
-          include : { 
-            location : true, 
+            employeeId: employeeId,
+            supervisorEmployeeId: supervisorEmployeeId,
+            deploymentDate: new Date(),
+            deploymentTill: dto.deploymentTill ? new Date(dto.deploymentTill) : undefined
+          },
+          include: {
+            location: true,
             client: true,
             employee: true
           }
@@ -350,38 +485,82 @@ export class EmployeeService {
       }
     }
 
-    async updateAssignedSupervisor(dto : UpdateAssignSupervisorDto ,assignSupervisorId : string, organizationId : string){
+    async updateAssignedSupervisor(dto: UpdateAssignSupervisorDto, assignSupervisorId: string, organizationId: string) {
       try {
+        const assignedSupervisor = await this.prisma.assignedSupervisor.findUnique({ 
+          where: { id: assignSupervisorId }
+        });
 
-        const assignedSupervisor = await this.prisma.assignedSupervisor.findUnique({ where : { id : assignSupervisorId }});
-
-        if(!assignedSupervisor) throw new NotFoundException("Assigned Supervisor not found");
+        if (!assignedSupervisor) throw new NotFoundException("Assigned Supervisor not found");
         
-        if(dto.employeeId){
-          const employee = await this.prisma.employee.findUnique({where : { id : dto.employeeId, organizationId : organizationId }});
-          if(!employee) throw new NotFoundException("Employee doesn't exist for this organization");
+        // If service number is provided, resolve to employee ID
+        let supervisorEmployeeId: string | undefined;
+        if (dto.supervisorServiceNumber !== undefined) {
+          // First try to resolve as a Guard
+          try {
+            const guardSupervisor = await this.guardService.findByServiceNumber(dto.supervisorServiceNumber, organizationId);
+            if (guardSupervisor) {
+              // Map guard to employee ID
+              const employeeId = await this.guardService.resolveEmployeeIdForGuard(guardSupervisor.id, organizationId, true);
+              if (!employeeId) {
+                throw new NotFoundException(`Failed to resolve employee record for guard supervisor with service number ${dto.supervisorServiceNumber}`);
+              }
+              supervisorEmployeeId = employeeId;
+            } else {
+              // If not found as guard, try as employee
+              const employeeSupervisor = await this.findByServiceNumber(dto.supervisorServiceNumber, organizationId);
+              if (!employeeSupervisor) {
+                throw new NotFoundException(`No supervisor found with service number ${dto.supervisorServiceNumber}`);
+              }
+              supervisorEmployeeId = employeeSupervisor.id;
+            }
+          } catch (error) {
+            // If guard lookup fails, try employee
+            const employeeSupervisor = await this.findByServiceNumber(dto.supervisorServiceNumber, organizationId);
+            if (!employeeSupervisor) {
+              throw new NotFoundException(`No supervisor found with service number ${dto.supervisorServiceNumber}`);
+            }
+            supervisorEmployeeId = employeeSupervisor.id;
+          }
         }
 
-        if(dto.locationId){
-          const location = await this.prisma.location.findUnique({where : { id : dto.locationId, clientId : dto.clientId ,organizationId : organizationId }});
-          if(!location) throw new NotFoundException("Location doesn't exist for this organization");
+        // Validate location and client independently
+        if (dto.locationId) {
+          const location = await this.prisma.location.findUnique({
+            where: { 
+              id: dto.locationId,
+              organizationId: organizationId 
+            }
+          });
+          if (!location) throw new NotFoundException("Location doesn't exist for this organization");
         } 
 
-        if(dto.clientId){
-          const client = await this.prisma.client.findUnique({where : { id : dto.clientId, organizationId : organizationId }});
-          if(!client) throw new NotFoundException("Client doesn't exist for this organization");
+        if (dto.clientId) {
+          const client = await this.prisma.client.findUnique({
+            where: { 
+              id: dto.clientId,
+              organizationId: organizationId 
+            }
+          });
+          if (!client) throw new NotFoundException("Client doesn't exist for this organization");
         } 
   
+        const updateData = {
+          ...dto,
+          supervisorEmployeeId: supervisorEmployeeId,
+          deploymentTill: dto.deploymentTill ? new Date(dto.deploymentTill) : undefined
+        };
+
+        // Remove serviceNumber from update data as it's not a field in AssignedSupervisor
+        delete (updateData as any).supervisorServiceNumber;
         
-        const updatedAssignSupervisor =  await this.prisma.assignedSupervisor.update({
-          where : { id : assignSupervisorId },
-          data : { 
-            ...dto,
-          }, 
-          include : { 
-            location : true, 
+        const updatedAssignSupervisor = await this.prisma.assignedSupervisor.update({
+          where: { id: assignSupervisorId },
+          data: updateData,
+          include: {
+            location: true,
             client: true,
-            employee : true
+            employee: true
           }
         });
   
@@ -391,6 +570,68 @@ export class EmployeeService {
         handlePrismaError(error);
       }
     }
+
+      /**
+       * Get assignments where this employee is the supervisor
+       * @param supervisorEmployeeId The employee ID of the supervisor
+       * @param organizationId Organization ID for security scope
+       * @returns List of supervisor assignments including location and client details
+       */
+      async getAssignmentsBySupervisorId(supervisorEmployeeId: string, organizationId: string) {
+        try {
+          const assignments = await this.prisma.assignedSupervisor.findMany({
+            where: {
+              supervisorEmployeeId: supervisorEmployeeId,
+              deploymentTill: null,
+              location: {
+                organizationId: organizationId
+              }
+            },
+            include: {
+              location: {
+                select: {
+                  id: true,
+                  locationName: true,
+                  createdLocationId: true,
+                },
+              },
+              client: {
+                select: {
+                  id: true,
+                  contractNumber: true,
+                  companyName: true,
+                }
+              },
+              employee: {
+                select: {
+                  id: true,
+                  serviceNumber: true,
+                  fullName: true,
+                }
+              }
+            }
+          });
+
+          // Calculate working days for each assignment
+          return assignments.map(assignment => {
+            let totalWorkingDays: number | null = null;
+            if (assignment.deploymentDate) {
+              const deploymentDate = new Date(assignment.deploymentDate);
+              const deploymentTill = assignment.deploymentTill
+                ? new Date(assignment.deploymentTill)
+                : new Date();
+              const timeDiff = deploymentTill.getTime() - deploymentDate.getTime();
+              totalWorkingDays = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+            }
+            return {
+              ...assignment,
+              totalWorkingDays
+            };
+          });
+        } catch (error) {
+          handlePrismaError(error);
+        }
+      }
 
       async getAssignedSupervisorsByEmployeeId(employeeId: string, organizationId: string) {
           try {
@@ -424,19 +665,26 @@ export class EmployeeService {
                     serviceNumber: true,
                     fullName: true,
                   }
+                },
+                supervisor: {
+                  select: {
+                    id: true,
+                    serviceNumber: true,
+                    fullName: true,
+                  }
                 }
               },
             });
 
             if (!assignedSupervisors || assignedSupervisors.length === 0) return [];
 
-            const result = assignedSupervisors.map((supervisor) => {
-               let totalWorkingDays: number | null = null;
+            const result = assignedSupervisors.map((assignment) => {
+              let totalWorkingDays: number | null = null;
 
-              if (supervisor.deploymentDate) {
-                const deploymentDate = new Date(supervisor.deploymentDate);
-                const deploymentTill = supervisor.deploymentTill
-                  ? new Date(supervisor.deploymentTill)
+              if (assignment.deploymentDate) {
+                const deploymentDate = new Date(assignment.deploymentDate);
+                const deploymentTill = assignment.deploymentTill
+                  ? new Date(assignment.deploymentTill)
                   : new Date(); 
 
                 const timeDiff = deploymentTill.getTime() - deploymentDate.getTime();
@@ -444,7 +692,7 @@ export class EmployeeService {
               }
 
               return {
-                ...supervisor,
+                ...assignment,
                 totalWorkingDays,
               };
             });
@@ -457,9 +705,8 @@ export class EmployeeService {
 
 
 
-  //#endregion
-
 }
+
 
 
 

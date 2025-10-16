@@ -6,13 +6,24 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { Prisma, User } from '@prisma/client';
 import { RoleService } from '../role/role.service';
 import * as bcrypt from 'bcrypt';
 import { CreateEmployeeUserDto } from './dto/create-employee-user.dto';
 import { CreateServiceNumberUserDto } from './dto/create-service-number-user.dto';
 import { PersonType } from '../common/enums/person-type.enum';
 import { handlePrismaError } from '../common/utils/prisma-error-handler';
+
+// Define User type based on what we need
+type User = {
+  id: string;
+  email: string;
+  userName: string;
+  password: string;
+  profileImage?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  isActive: boolean;
+};
 
 @Injectable()
 export class UserService {
@@ -24,38 +35,71 @@ export class UserService {
   /**
    * Create a regular system user
    */
-  async create(data: CreateUserDto): Promise<User> {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: data.email },
-    });
-    if (existingUser) {
-      throw new ConflictException('A user with this email already exists');
+  async create(data: CreateUserDto, organizationId: string): Promise<User> {
+    try {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: data.email },
+      });
+      if (existingUser) {
+        throw new ConflictException('A user with this email already exists');
+      }
+
+      const role = await this.roleService.findByName(data.roleName);
+      if (!role) {
+        throw new NotFoundException(`Role '${data.roleName}' not found`);
+      }
+
+      // Validate office belongs to organization
+      const office = await this.prisma.office.findFirst({
+        where: {
+          id: data.officeId,
+          organizationId
+        }
+      });
+      
+      if (!office) {
+        throw new NotFoundException('Office not found for this organization');
+      }
+
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+
+      const result = await this.prisma.$transaction(async (prisma) => {
+        // Create user
+        const user = await prisma.user.create({
+          data: {
+            email: data.email,
+            password: hashedPassword,
+            userName: data.userName,
+            profileImage: data.profileImage,
+          },
+        });
+
+        // Link user to role
+        await prisma.userRole.create({
+          data: {
+            userId: user.id,
+            roleId: role.id,
+          },
+        });
+
+        // Link user to organization and office
+        await prisma.userOffice.create({
+          data: {
+            userId: user.id,
+            organizationId,
+            officeId: data.officeId,
+          },
+        });
+
+        return user;
+      });
+
+      return result;
+    } catch (error) {
+      handlePrismaError(error);
+      // Add explicit return to satisfy the return type
+      return undefined as unknown as User;
     }
-
-    const role = await this.roleService.findByName(data.roleName);
-    if (!role) {
-      throw new NotFoundException(`Role '${data.roleName}' not found`);
-    }
-
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    const user = await this.prisma.user.create({
-      data: {
-        email: data.email,
-        password: hashedPassword,
-        userName: data.userName,
-        profileImage: data.profileImage,
-      },
-    });
-
-    await this.prisma.userRole.create({
-      data: {
-        userId: user.id,
-        roleId: role.id,
-      },
-    });
-
-    return user;
   }
 
   /**
@@ -335,11 +379,11 @@ export class UserService {
             data: { userId: user.id },
           });
         } else {
-          updatedPerson = await prisma.guard.update({
+            updatedPerson = await prisma.guard.update({
             where: { id: person.id },
             data: {
-              userId: user.id,
-            } as Prisma.GuardUncheckedUpdateInput
+              userId: user.id
+            }
           });
         }
 

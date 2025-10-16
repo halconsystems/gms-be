@@ -20,10 +20,13 @@ export class UserController {
   @ApiOperation({ summary: 'Create user' })
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.superAdmin)
+  @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('User created successfully')
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @GetOrganizationId() organizationId: string
+  ) {
+    return this.userService.create(createUserDto, organizationId);
   }
 
   @Post('/create')

@@ -92,4 +92,16 @@ export class LocationController {
   getRequestedGuardsByLocation(@Param("locationId") locationId: string ) {
     return this.locationService.getRequestedGuardsByLocationId(locationId);
   }
+
+  @Get('by-supervisor/:supervisorEmployeeId')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @ResponseMessage('Locations fetched successfully')
+  findLocationsBySupervisor(
+    @Param('supervisorEmployeeId') supervisorEmployeeId: string,
+    @GetOrganizationId() organizationId: string
+  ) {
+    return this.locationService.findLocationsBySupervisorId(supervisorEmployeeId, organizationId);
+  }
 }

@@ -328,18 +328,112 @@ export class LocationService {
   }
 
   async getRequestedGuardsByLocationId(locationId: string) {
-  try {
-    return await this.prisma.requestedGuard.findMany({ 
-      where: { locationId: locationId, },
-      include: {
-        guardCategory: {
-          select: {
-            id: true,
-            categoryName: true
+    try {
+      return await this.prisma.requestedGuard.findMany({ 
+        where: { locationId: locationId, },
+        include: {
+          guardCategory: {
+            select: {
+              id: true,
+              categoryName: true
+            }
           }
         }
-      }
-    });
+      });
+    } catch (error) {
+      handlePrismaError(error);
+    }
+  }
+
+  async findLocationsBySupervisorId(supervisorEmployeeId: string, organizationId: string) {
+    try {
+      const locations = await this.prisma.location.findMany({
+        where: {
+          organizationId,
+          assignedSupervisor: {
+            some: {
+              supervisorEmployeeId,
+              deploymentTill: null
+            }
+          }
+        },
+        select: {
+          id: true,
+          locationName: true,
+          address: true,
+          city: true,
+          provinceState: true,
+          country: true,
+          GPScoordinate: true,
+          authorizedPersonName: true,
+          authorizedPersonNumber: true,
+          authorizedPersonDesignation: true,
+          isActive: true,
+          client: {
+            select: {
+              companyName: true,
+              contractNumber: true,
+              contactNumber: true
+            }
+          },
+          assignedGuard: {
+            where: {
+              deploymentTill: null // Only currently assigned guards
+            },
+            select: {
+              id: true,
+              deploymentDate: true,
+              guard: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  serviceNumber: true,
+                  contactNumber: true
+                }
+              },
+              guardCategory: {
+                select: {
+                  categoryName: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Transform the data to add guard count and format it
+      return locations.map(location => ({
+        id: location.id,
+        locationName: location.locationName,
+        address: location.address,
+        city: location.city,
+        provinceState: location.provinceState,
+        country: location.country,
+        GPScoordinate: location.GPScoordinate,
+        authorizedPerson: {
+          name: location.authorizedPersonName,
+          number: location.authorizedPersonNumber,
+          designation: location.authorizedPersonDesignation
+        },
+        client: {
+          companyName: location.client.companyName,
+          contractNumber: location.client.contractNumber,
+          contactNumber: location.client.contactNumber
+        },
+        guards: {
+          totalCount: location.assignedGuard.length,
+          list: location.assignedGuard.map(ag => ({
+            id: ag.id,
+            guardId: ag.guard.id,
+            name: ag.guard.fullName,
+            serviceNumber: ag.guard.serviceNumber,
+            contactNumber: ag.guard.contactNumber,
+            category: ag.guardCategory.categoryName,
+            deploymentDate: ag.deploymentDate
+          }))
+        },
+        isActive: location.isActive
+      }));
     } catch (error) {
       handlePrismaError(error);
     }

@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
+import { SignupDto } from './dto/signup.dto';
 import * as bcrypt from 'bcrypt';
 import { fullUserInclude, FullUserType } from './types/full-user.type';
 import { RolesEnum } from 'src/common/enums/roles-enum';
@@ -14,8 +15,15 @@ export class AuthService {
   constructor(private prisma: PrismaService, private jwtService: JwtService, private userService: UserService) {}
 
   /** ---------------- USER SIGNUP ---------------- */
-  async signup(dto: CreateUserDto) {
-    const user = await this.userService.create(dto);
+  async signup(dto: SignupDto) {
+    const user = await this.userService.create({
+      email: dto.email,
+      password: dto.password,
+      userName: dto.userName,
+      profileImage: dto.profileImage,
+      roleName: dto.roleName,
+      officeId: dto.officeId
+    }, dto.organizationId);
 
     const fullUser = await this.prisma.user.findUnique({
       where: { id: user.id },
@@ -119,9 +127,48 @@ export class AuthService {
         features 
       });
 
+      // Get supervisor info if user has supervisor role
+      let supervisorInfo: any = null;
+      const isSupervisor = userRoles.includes(RolesEnum.supervisor);
+      const firstEmployee = user.employee?.[0];
+      
+      if (isSupervisor && firstEmployee?.supervisorFor) {
+        const locations = firstEmployee.supervisorFor.map(sup => {
+          const location = sup.location;
+          return {
+            id: location.id,
+            locationName: location.locationName,
+            address: location.address,
+            city: location.city,
+            client: {
+              id: sup.client.id,
+              companyName: sup.client.companyName,
+              contactNumber: sup.client.contactNumber
+            },
+            guards: {
+              totalCount: location.assignedGuard.length,
+              list: location.assignedGuard.map(ag => ({
+                id: ag.id,
+                guardId: ag.guard.id,
+                name: ag.guard.fullName,
+                serviceNumber: ag.guard.serviceNumber,
+                contactNumber: ag.guard.contactNumber,
+                category: ag.guardCategory.categoryName
+              }))
+            }
+          };
+        });
+
+        supervisorInfo = {
+          employeeId: firstEmployee.id,
+          serviceNumber: firstEmployee.serviceNumber,
+          locations: locations
+        };
+      }
+
       // Format login response with defensive null checks
       return { 
-        token: token, // Changed from token to accessToken
+        token: token,
         user: { 
           id: user.id, 
           userName: user.userName,
@@ -130,7 +177,9 @@ export class AuthService {
           organizationName: organization?.organizationName ?? null,
           features,
           roleName,
-          isSuperAdmin
+          isSuperAdmin,
+          isSupervisor,
+          supervisorInfo
         }
       };
     } catch (error) {

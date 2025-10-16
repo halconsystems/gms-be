@@ -180,7 +180,8 @@ model Employee {
   isActive           Boolean              @default(true)
   updatedAt          DateTime             @default(now()) @updatedAt
   academic           Academic?
-  assignedSupervisor AssignedSupervisor[]
+  assignedSupervisor AssignedSupervisor[] @relation("EmployeeAssignedSupervisor")
+  supervisorFor      AssignedSupervisor[] @relation("SupervisorForEmployee")
   bankAccount        BankAccount?
   biometric          Biometric?
   drivingLicense     DrivingLicense?
@@ -529,18 +530,20 @@ model AssignedGuard {
 }
 
 model AssignedSupervisor {
-  id             String    @id @default(uuid()) @db.Uuid
-  locationId     String    @db.Uuid
-  employeeId     String    @db.Uuid
-  clientId       String    @db.Uuid
-  deploymentDate DateTime
-  deploymentTill DateTime?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  location       Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(uuid()) @db.Uuid
+  locationId          String    @db.Uuid
+  employeeId          String    @db.Uuid
+  supervisorEmployeeId String    @db.Uuid
+  clientId            String    @db.Uuid
+  deploymentDate      DateTime
+  deploymentTill      DateTime?
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  client              Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  employee            Employee  @relation("EmployeeAssignedSupervisor", fields: [employeeId], references: [id], onDelete: Cascade)
+  supervisor          Employee  @relation("SupervisorForEmployee", fields: [supervisorEmployeeId], references: [id], onDelete: Cascade)
+  location            Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
 }
 
 model GuardsAttendance {
