@@ -27,6 +27,7 @@ import { PayrollModule } from './payroll/payroll.module';
 import { AccountsService } from './accounts/accounts.service';
 import { AccountsController } from './accounts/accounts.controller';
 import { AccountsModule } from './accounts/accounts.module';
+import { PersonsModule } from './persons/persons.module';
 
 @Module({
   imports: [
@@ -50,7 +51,7 @@ import { AccountsModule } from './accounts/accounts.module';
         limit: 500
       }
     ]),
-    AuthModule, UserModule, RoleModule, UserRoleModule, PrismaModule, GuardCategoryModule, OrganizationModule, GuardModule, EmployeeModule, ClientModule, LocationModule, ShiftModule, FileModule, LocationTypeModule, AttendanceModule, PayrollModule, BiometricModule, AccountsModule,  
+    AuthModule, UserModule, RoleModule, UserRoleModule, PrismaModule, GuardCategoryModule, OrganizationModule, GuardModule, EmployeeModule, ClientModule, LocationModule, ShiftModule, FileModule, LocationTypeModule, AttendanceModule, PayrollModule, BiometricModule, AccountsModule, PersonsModule,
   ],
   controllers: [AppController],
   providers: [

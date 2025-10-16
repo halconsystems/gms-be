@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE "Guard" ALTER COLUMN "registrationDate" SET DEFAULT CURRENT_TIMESTAMP;

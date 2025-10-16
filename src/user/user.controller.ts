@@ -2,6 +2,7 @@ import { Controller, Post, Body, Get, Param, Delete, UseGuards } from '@nestjs/c
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateEmployeeUserDto } from './dto/create-employee-user.dto';
+import { CreateServiceNumberUserDto } from './dto/create-service-number-user.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.decorator';
@@ -32,6 +33,19 @@ export class UserController {
   @ResponseMessage('User created successfully')
   createEmployeeUser(@Body() createEmployeeUserDto: CreateEmployeeUserDto, @GetOrganizationId() organizationId: string) {
     return this.userService.createEmployeeUser(createEmployeeUserDto, organizationId);
+  }
+
+  @Post('/create-by-service-number')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin)
+  @ApiOperation({ summary: 'Create user by service number for employee or guard' })
+  @ResponseMessage('User created successfully')
+  createServiceNumberUser(
+    @Body() createServiceNumberUserDto: CreateServiceNumberUserDto,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return this.userService.createServiceNumberUser(createServiceNumberUserDto, organizationId);
   }
 
   @Get()

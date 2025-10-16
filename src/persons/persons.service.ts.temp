@@ -1,0 +1,73 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { PersonType } from '../common/enums/person-type.enum';
+
+@Injectable()
+export class PersonsService {
+    constructor(private readonly prisma: PrismaService) {}
+
+    async searchPersons(search: string, organizationId: string) {
+        const searchTerm = search?.trim() || '';
+        
+        try {
+            // Search in both employees and guards tables
+            const [employees, guards] = await Promise.all([
+                this.prisma.employee.findMany({
+                    where: {
+                        organizationId,
+                        user: {
+                            is: null // Only get those without users
+                        },
+                        OR: [
+                            ...(isNaN(Number(searchTerm)) ? [] : [{ serviceNumber: Number(searchTerm) }]),
+                            { fullName: { contains: searchTerm, mode: 'insensitive' } }
+                        ]
+                    },
+                    select: {
+                        id: true,
+                        serviceNumber: true,
+                        fullName: true
+                    },
+                    take: 10
+                }),
+                this.prisma.guard.findMany({
+                    where: {
+                        organizationId,
+                        user: {
+                            is: null // Only get those without users
+                        },
+                        OR: [
+                            ...(isNaN(Number(searchTerm)) ? [] : [{ serviceNumber: Number(searchTerm) }]),
+                            { fullName: { contains: searchTerm, mode: 'insensitive' } }
+                        ]
+                    },
+                    select: {
+                        id: true,
+                        serviceNumber: true,
+                        fullName: true
+                    },
+                    take: 10
+                })
+            ]);
+
+            // Combine and format results
+            const formattedEmployees = employees.map(emp => ({
+                ...emp,
+                personType: PersonType.EMPLOYEE
+            }));
+
+            const formattedGuards = guards.map(guard => ({
+                ...guard,
+                personType: PersonType.GUARD
+            }));
+
+            // Sort by service number
+            return [...formattedEmployees, ...formattedGuards]
+                .sort((a, b) => a.serviceNumber - b.serviceNumber);
+                
+        } catch (error) {
+            console.error('Error searching persons:', error);
+            throw error;
+        }
+    }
+}

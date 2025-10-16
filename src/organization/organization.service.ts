@@ -27,6 +27,7 @@ import { CreateOfficeDto } from './dto/create-office-dto';
 import { CreateOrganizationBankAccountDto } from './dto/create-bank-account.dto';
 import { generateRandomNumber } from 'src/common/utils/random-num-generator';
 import { RolesEnum } from 'src/common/enums/roles-enum';
+import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
 
 @Injectable()
 export class OrganizationService {
@@ -68,7 +69,7 @@ export class OrganizationService {
             tx.feature.upsert({
               where: { name: featureName },
               create: { name: featureName },
-              update: {},
+              update: {}
             })
           )
         );
@@ -95,7 +96,6 @@ export class OrganizationService {
           phoneNumber2: (dto.phoneNumber2 as string) || null,
           addressLine1: dto.addressLine1 as string,
           addressLine2: (dto.addressLine2 as string) || null,
-          email: dto.email,
           userId: newUser.id,
           isActive: true,
         };
@@ -106,16 +106,19 @@ export class OrganizationService {
             ...orgData,
             organizationFeatures: {
               create: features.map(feature => ({
-                feature: {
-                  connect: { id: feature.id }
-                }
+                featureId: feature.id
               }))
             }
           },
           include: {
             organizationFeatures: {
-              include: {
-                feature: true
+              select: {
+                feature: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
               }
             }
           }
@@ -171,12 +174,11 @@ export class OrganizationService {
 
       if (error instanceof ConflictException || error instanceof NotFoundException) throw error;
 
-      if ((error as any)?.code === 'P2002') {
-        const field = (error as any).meta?.target?.[0] || 'unknown field';
-        throw new ConflictException(`${field} already exists`);
+      if (error.code) {
+        handlePrismaError(error);
       }
 
-      throw new InternalServerErrorException(error.message || 'Failed to create organization');
+      throw new InternalServerErrorException('Failed to create organization', { cause: error });
     }
   }
 

@@ -98,17 +98,13 @@ export class ClientService {
             throw error;
         }
 
-        // Handle specific Prisma errors
-        if (error.code === 'P2002') {
-            throw new ConflictException('A client with this email already exists');
-        }
-
-        if (error.message.includes('Numeric overflow')) {
-            throw new ConflictException('Contract number is too large');
-        }
-
         // Log the full error for debugging
         console.error('Detailed error:', JSON.stringify(error, null, 2));
+        
+        if (error.code) {
+            handlePrismaError(error);
+        }
+        
         throw new Error('Failed to create client. Please try again.');
     }
   }

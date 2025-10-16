@@ -30,6 +30,22 @@ export class EmployeeController {
     return this.employeeService.create(createGuardDto, organizationId);
   }
 
+  @Get('/by/serviceNumber')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin)
+  @ResponseMessage('Employee fetched successfully')
+  @ApiOperation({
+    summary: 'Get employee by service number',
+    description: 'Retrieves an employee using their service number within the organization'
+  })
+  findByServiceNumber(
+    @Query('serviceNumber') serviceNumber: number,
+    @GetOrganizationId() organizationId: string
+  ) {
+    return this.employeeService.findByServiceNumber(serviceNumber, organizationId);
+  }
+
   @Get()
   findAll() {
     return this.employeeService.findAll();

@@ -24,6 +24,7 @@ export class EmployeeService {
       });
 
       const nextServiceNumber = lastEmployee ? lastEmployee.serviceNumber + 1 : 1;
+      console.log(`Assigning service number ${nextServiceNumber} to employee in organization ${organizationId}`);
 
       // Prepare create data object
       const createData: any = {
@@ -102,6 +103,38 @@ export class EmployeeService {
 
     
   
+
+  async findByServiceNumber(serviceNumber: number, organizationId: string) {
+    try {
+      const employee = await this.prisma.employee.findUnique({
+        where: {
+          organizationId_serviceNumber: {
+            organizationId,
+            serviceNumber
+          }
+        },
+        include: {
+          academic: true,
+          drivingLicense: true,
+          employeeExperience: true,
+          references: true,
+          bankAccount: true,
+          biometric: true,
+          employeeDocuments: true
+        }
+      });
+
+      if (!employee) {
+        throw new NotFoundException(
+          `Employee with service number ${serviceNumber} not found in organization ${organizationId}`
+        );
+      }
+
+      return employee;
+    } catch (error) {
+      handlePrismaError(error);
+    }
+  }
 
   findAll() {
     return this.prisma.employee.findMany({

@@ -12,7 +12,12 @@ async function checkFeatureSchema() {
         name: true,
         description: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        organizationFeatures: {
+          select: {
+            organizationId: true
+          }
+        }
       }
     });
     

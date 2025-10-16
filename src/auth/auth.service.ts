@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
-import type { User, UserRole, Role, UserOffice, Organization, Feature } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
+import { fullUserInclude, FullUserType } from './types/full-user.type';
+import { RolesEnum } from 'src/common/enums/roles-enum';
 
 @Injectable()
 export class AuthService {
@@ -33,30 +35,12 @@ export class AuthService {
   /** ---------------- USER LOGIN ---------------- */
   async login(dto: LoginDto) {
     try {
+      // Use the predefined type for full user with relations
+
       // Find user with roles and direct organization relation first
-      const user = await this.prisma.user.findUnique({
+      const user: FullUserType | null = await this.prisma.user.findUnique({
         where: { email: dto.email },
-        include: {
-          userRoles: { 
-            include: { 
-              role: true 
-            } 
-          },
-          organizations: true, // Direct organization relation
-          userOffice: { 
-            include: { 
-              organization: {
-                include: {
-                  organizationFeatures: {
-                    include: {
-                      feature: true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        include: fullUserInclude
       });
 
       if (!user) throw new NotFoundException('User not found');
@@ -85,40 +69,44 @@ export class AuthService {
       const valid = await bcrypt.compare(dto.password, user.password);
       if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-      // Check if user is superadmin using case-insensitive comparison
-      const isSuperAdmin = user.userRoles?.some(
-        ur => ur.role?.roleName?.toLowerCase() === 'superadmin'
-      );
+      // Get user's roles
+      const userRoles = user.userRoles?.map(ur => ur.role?.roleName) || [];
+      const isSuperAdmin = userRoles.includes(RolesEnum.superAdmin);
+      const isOrgAdmin = userRoles.includes(RolesEnum.organizationAdmin);
 
-      // Try to get organization from both possible relations
-      const organization = user.organizations || user.userOffice?.[0]?.organization;
-      const organizationId = organization?.id || user.userOffice?.[0]?.organizationId;
+      // For organization admins, use their direct organization relation
+      // For other users, use their office's organization
+      let organization;
+      let organizationId;
+
+      if (isOrgAdmin) {
+        organization = user.organizations;
+        organizationId = organization?.id;
+      } else {
+        organization = user.userOffice?.[0]?.organization;
+        organizationId = user.userOffice?.[0]?.organizationId;
+      }
 
       console.log('Organization resolution:', {
+        isOrgAdmin,
+        userRoles,
         fromDirectRelation: user.organizations?.organizationName,
         fromUserOffice: user.userOffice?.[0]?.organization?.organizationName,
         finalOrgId: organizationId
       });
       
-      // Get features based on user role
+      // Get features from organization
       let features: string[] = [];
-      
-      if (isSuperAdmin) {
-        // Super admins get access to all features
-        const allFeatures = await this.prisma.feature.findMany();
-        features = allFeatures.map(f => f.name);
-        console.log('Superadmin features:', features);
-      } else if (organizationId) {
-        // Regular users: fetch features directly from OrganizationFeature table
-        const orgFeatures = await this.prisma.organizationFeature.findMany({
-          where: { organizationId },
-          include: { feature: true }
-        });
-        features = orgFeatures.map(of => of.feature.name);
-        console.log('Organization features for org:', organizationId, features);
-      } else {
-        console.log('No organization found for user:', user.id);
+      if (organization?.organizationFeatures) {
+        features = organization.organizationFeatures.map(of => of.feature.name);
       }
+      
+      console.log('Features loaded for user:', { 
+        userId: user.id, 
+        features, 
+        isOrgAdmin,
+        orgName: organization?.organizationName 
+      });
 
       const roleName = user.userRoles?.[0]?.role?.roleName ?? 'user';
 

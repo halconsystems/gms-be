@@ -25,11 +25,113 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## User Management
+
+### Service Number-Based User Creation
+
+The application now supports creating user accounts for both employees and guards using their service numbers. This feature ensures proper user management within organizations.
+
+#### Overview
+
+Users can now be created for both employees and guards using their unique service numbers. The system validates that:
+- Service numbers are unique within an organization and person type combination
+- The person (employee/guard) exists in the organization
+- The person doesn't already have a user account
+- The email address is unique across all users
+
+#### API Endpoint
+
+```http
+POST /users/create-by-service-number
+Authorization: Bearer {jwt_token}
+
+{
+  "serviceNumber": 1001,
+  "personType": "EMPLOYEE",  // or "GUARD"
+  "officeId": "123e4567-e89b-12d3-a456-426614174000",
+  "email": "john.doe@example.com",
+  "password": "password123",
+  "userName": "johndoe",
+  "profileImage": "profile.jpg",  // optional
+  "roleId": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+#### Response
+
+```json
+{
+  "message": "User created successfully",
+  "data": {
+    "user": {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "email": "john.doe@example.com",
+      "userName": "johndoe",
+      ...
+    },
+    "person": {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "fullName": "John Doe",
+      "serviceNumber": 1001,
+      ...
+    }
+  }
+}
+```
+
+#### Migration Notes
+
+The Guard model now supports user accounts via the `userId` field, similar to the Employee model. This enables guards to have login credentials and access the system based on their assigned roles.
+
+#### Service Number Scoping
+
+Service numbers are unique within the combination of:
+- Organization
+- Person type (Employee or Guard)
+
+This means an employee and a guard in the same organization can have the same service number, but two employees or two guards in the same organization cannot.
+
+#### Backward Compatibility
+
+The previous endpoint `POST /users/create` for creating employee users using `employeeId` is still maintained for backward compatibility.
+
 ## Project setup
 
 ```bash
 $ npm install
+
+# Generate Prisma client
+$ npx prisma generate
+
+# Apply database migrations
+$ npx prisma migrate deploy    # For production/staging
+$ npx prisma migrate dev      # For development (creates new migrations)
+
+# Seed the database (if needed)
+$ npx prisma db seed
 ```
+
+### Database Migrations
+
+When working with database changes:
+
+1. Development environment:
+   ```bash
+   # Create and apply a new migration
+   $ npx prisma migrate dev --name <descriptive_name>
+   ```
+
+2. Staging/Production environment:
+   ```bash
+   # Apply existing migrations without modifications
+   $ npx prisma migrate deploy
+   ```
+
+3. After any schema changes:
+   ```bash
+   # Update Prisma client
+   $ npx prisma generate
+   ```
 
 ## Compile and run the project
 

@@ -192,14 +192,14 @@ export class FileService {
       };
     } catch (error) {
       console.error('Error creating guards:', error); // Log creation errors
-      if (error.code === 'P2002') {
-        return {
-          success: false,
-          message: 'Duplicate service number or CNIC found. Please check your data.',
-          error: error.meta
-        };
+      if (error.code) {
+        handlePrismaError(error);
       }
-      handlePrismaError(error);
+      return {
+        success: false,
+        message: 'Failed to create guards. Please check your data.',
+        error: error.message
+      };
     }
   }
 }

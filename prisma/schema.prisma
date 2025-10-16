@@ -16,7 +16,8 @@ model User {
   userName      String
   profileImage  String?
   id            String        @id @default(uuid()) @db.Uuid
-  employees     Employee[]
+  employee      Employee[]
+  guard         Guard[]
   organizations Organization? @relation("UserOrganization")
   userOffice    UserOffice[]
   userRoles     UserRole[]    @relation("UserUserRoles")
@@ -42,48 +43,47 @@ model UserRole {
 }
 
 model Feature {
-  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                  String                @unique @db.VarChar(255)
-  description           String?
-  createdAt            DateTime?             @default(now()) @db.Timestamp(6)
-  updatedAt            DateTime?             @default(now()) @updatedAt @db.Timestamp(6)
-  organizationFeatures  OrganizationFeature[]
-}
-
-model Organization {
-  id                    String                @id @default(uuid()) @db.Uuid
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
-  isActive              Boolean               @default(true)
-  organizationName      String
-  userId                String                @unique @db.Uuid
-  organizationLogo      String?
-  province              String?
-  city                  String?
-  phoneNumber1          String?
-  phoneNumber2          String?
-  addressLine1          String?
-  addressLine2          String?
-  email                 String?
-  client                Client[]
-  employee              Employee[]
-  guard                 Guard[]
-  guardCategories       GuardCategory[]
-  office                Office[]
-  user                  User                  @relation("UserOrganization", fields: [userId], references: [id], onDelete: Cascade)
-  bankAccount           OrganizationBankAccount[]
-  userOffice            UserOffice[]
-  organizationFeatures  OrganizationFeature[]
+  id                   String                 @id @default(uuid()) @db.Uuid
+  name                 String                 @unique
+  description         String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  organizationFeatures OrganizationFeature[]
 }
 
 model OrganizationFeature {
-  id              String       @id @default(uuid()) @db.Uuid
-  organizationId  String       @db.Uuid
-  featureId       String       @db.Uuid
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  feature         Feature      @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  featureId      String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature        Feature      @relation(fields: [featureId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, featureId])
+}
+
+model Organization {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  isActive             Boolean                @default(true)
+  organizationName     String
+  userId               String                 @unique @db.Uuid
+  organizationLogo     String?
+  province             String
+  city                 String
+  phoneNumber1         String
+  phoneNumber2         String?
+  addressLine1         String
+  addressLine2         String?
+  client              Client[]
+  employee            Employee[]
+  guard               Guard[]
+  guardCategories     GuardCategory[]
+  office              Office[]
+  organizationFeatures OrganizationFeature[]
+  user                User                    @relation("UserOrganization", fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount         OrganizationBankAccount[]
+  userOffice          UserOffice[]
 }
 
 model Office {
@@ -189,13 +189,17 @@ model Employee {
   employeeDocuments  EmployeeDocuments?
   employeeExperience EmployeeExperience[]
   references         Reference[]
+
+  @@unique([organizationId, serviceNumber], map: "unique_employee_org_service")
 }
 
 model Guard {
   id                         String             @id @default(uuid()) @db.Uuid
+  userId                     String?            @db.Uuid
   organizationId             String             @db.Uuid
   registrationDate           DateTime?          @default(now())
   fullName                   String
+  user                       User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   fatherName                 String?
   dateOfBirth                DateTime?
   cnicNumber                 String             @unique
@@ -242,6 +246,8 @@ model Guard {
   guardExperience            GuardExperience[]
   guardsAttendance           GuardsAttendance[]
   references                 Reference[]
+
+  @@unique([organizationId, serviceNumber], map: "unique_guard_org_service")
 }
 
 model Academic {
