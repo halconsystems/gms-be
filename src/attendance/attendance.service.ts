@@ -13,18 +13,62 @@ export class AttendanceService {
 
     async create(dtoList : CreateGuardAttendanceDto[], organizationId : string){
         try {
-
             const errors : string[] = [];
             const validDtos : CreateGuardAttendanceDto[] = [];
 
-            for (const dto of dtoList) {
-                    const guard = await this.prisma.guard.findUnique({ where : { id : dto.guardId, organizationId : organizationId }});
-                    const location = await this.prisma.location.findUnique({ where : { id : dto.locationId, organizationId : organizationId }});
-                    const assignedGuard = await this.prisma.assignedGuard.findFirst({ where : { guardId : dto.guardId, locationId : dto.locationId }});
+            // First check if the user has access to this location
+            const location = await this.prisma.location.findFirst({
+                where: {
+                    OR: [
+                        // Check if location belongs to organization
+                        { organizationId: organizationId },
+                        // Check if location is assigned to supervisor
+                        {
+                            assignedSupervisor: {
+                                some: {
+                                    employee: {
+                                        organizationId: organizationId
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            });
 
-                    if(!guard) throw new NotFoundException("Guard Not Found");
-                    if(!location) throw new NotFoundException("Location Not Found");
-                    if(!assignedGuard) throw new NotFoundException("Guard is not assigned to this location");
+            if (!location) throw new NotFoundException("Location Not Found or Access Denied");
+
+            for (const dto of dtoList) {
+                const guard = await this.prisma.guard.findUnique({ 
+                    where: { 
+                        id: dto.guardId,
+                        organizationId: organizationId
+                    }
+                });
+                
+                const assignedGuard = await this.prisma.assignedGuard.findFirst({ 
+                    where: { 
+                        guardId: dto.guardId, 
+                        locationId: dto.locationId,
+                        location: {
+                            OR: [
+                                { organizationId: organizationId },
+                                {
+                                    assignedSupervisor: {
+                                        some: {
+                                            employee: {
+                                                organizationId: organizationId
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                });
+
+                if(!guard) throw new NotFoundException("Guard Not Found");
+                if(!assignedGuard) throw new NotFoundException("Guard is not assigned to this location");
 
                     const start = startOfDay(dto.date);
                     const end = addDays(start, 1);

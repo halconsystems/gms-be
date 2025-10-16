@@ -18,7 +18,7 @@ export class AttendanceController {
      @Post("/guard")
      @ApiBearerAuth('jwt')
      @UseGuards(JwtAuthGuard, RolesGuard)
-     @Roles(RolesEnum.organizationAdmin)
+     @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
      @ResponseMessage("Guard Attendance created successfully") 
      @ApiBody({ 
         type: CreateGuardAttendanceDto,
@@ -44,7 +44,7 @@ export class AttendanceController {
      @Get("/guard/all")
      @ApiBearerAuth('jwt')
      @UseGuards(JwtAuthGuard, RolesGuard)
-     @Roles(RolesEnum.organizationAdmin)
+     @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
      @ResponseMessage("Guard Attendance fetched successfully")
      findAll(@GetOrganizationId() organizationId: string) {
        return this.attendanceService.findAll(organizationId);
@@ -53,7 +53,7 @@ export class AttendanceController {
      @Get("/location/guard/:locationId")
      @ApiBearerAuth('jwt')
      @UseGuards(JwtAuthGuard, RolesGuard)
-     @Roles(RolesEnum.organizationAdmin)
+     @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
      @ResponseMessage("Guard Attendance fetched successfully")
      @ApiQuery({ name: 'serviceNumber', required: false, type: Number })
      @ApiQuery({ name: 'officeId', required: false, type: Number })

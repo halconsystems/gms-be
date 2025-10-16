@@ -19,6 +19,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email,
       roleName: payload.roleName,
       organizationId: payload.organizationId || null,
+      userRoles: [payload.roleName], // Use the actual role from payload
+      features: payload.features || [],
+      isSupervisor: payload.roleName === 'supervisor', // Explicitly set supervisor status
+      supervisorInfo: payload.supervisorInfo || null, // Include supervisor info if available
     };
   }
 }
