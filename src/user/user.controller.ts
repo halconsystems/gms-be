@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateEmployeeUserDto } from './dto/create-employee-user.dto';
@@ -56,6 +56,22 @@ export class UserController {
   @ResponseMessage('Users fetched successfully')
   findAll() {
     return this.userService.findAll();
+  }
+
+  @Get('supervisors')
+  @ApiOperation({ summary: 'Get all supervisors' })
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin)
+  @ResponseMessage('Supervisors fetched successfully')
+  async getSupervisors(
+    @GetOrganizationId() organizationId: string,
+    @Query('locationId') locationId?: string,
+    @Query('clientId') clientId?: string
+  ) {
+    const supervisors = await this.userService.getSupervisors(organizationId, { locationId, clientId });
+    // Return directly without wrapping, as @ResponseMessage will handle the wrapping
+    return supervisors;
   }
 
   @Get(':id')

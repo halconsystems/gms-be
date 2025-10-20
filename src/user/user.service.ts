@@ -3,6 +3,7 @@ import {
   NotFoundException,
   InternalServerErrorException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -10,7 +11,9 @@ import { RoleService } from '../role/role.service';
 import * as bcrypt from 'bcrypt';
 import { CreateEmployeeUserDto } from './dto/create-employee-user.dto';
 import { CreateServiceNumberUserDto } from './dto/create-service-number-user.dto';
+import { GetSupervisorsDto } from './dto/get-supervisors.dto';
 import { PersonType } from '../common/enums/person-type.enum';
+import { RolesEnum } from '../common/enums/roles-enum';
 import { handlePrismaError } from '../common/utils/prisma-error-handler';
 
 // Define User type based on what we need
@@ -274,6 +277,134 @@ export class UserService {
   /**
    * Create a user account for an employee or guard using their service number
    */
+  /**
+   * Get all users with supervisor roles in the organization
+   * @param organizationId The organization ID to filter by
+   * @param dto Optional filters for location and client
+   * @returns Array of supervisors with their basic information
+   */
+  async getSupervisors(organizationId: string, dto?: GetSupervisorsDto) {
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    try {
+      // First, validate the organization exists
+      const organization = await this.prisma.organization.findUnique({
+        where: { id: organizationId }
+      });
+
+      if (!organization) {
+        throw new NotFoundException(`Organization with ID ${organizationId} not found`);
+      }
+
+      // Validate location and client if provided
+      if (dto?.locationId && dto?.clientId) {
+        const location = await this.prisma.location.findFirst({
+          where: {
+            id: dto.locationId,
+            clientId: dto.clientId,
+            organizationId
+          }
+        });
+
+        if (!location) {
+          throw new NotFoundException(`Location with ID ${dto.locationId} not found for client ${dto.clientId}`);
+        }
+      }
+
+      // Get users with supervisor roles
+      const users = await this.prisma.user.findMany({
+        where: {
+          userRoles: {
+            some: {
+              role: {
+                roleName: {
+                  in: [RolesEnum.supervisor, RolesEnum.guardSupervisor]
+                }
+              }
+            }
+          }
+        },
+        include: {
+          guard: {
+            where: { 
+              organizationId,
+              ...(dto?.locationId && dto?.clientId ? {
+                assignedGuard: {
+                  some: {
+                    location: {
+                      id: dto.locationId,
+                      clientId: dto.clientId
+                    }
+                  }
+                }
+              } : {})
+            },
+            select: {
+              serviceNumber: true,
+              fullName: true,
+              id: true
+            }
+          },
+          employee: {
+            where: { 
+              organizationId,
+              ...(dto?.locationId && dto?.clientId ? {
+                supervisorFor: {
+                  some: {
+                    locationId: dto.locationId,
+                    clientId: dto.clientId,
+                    deploymentTill: null
+                  }
+                }
+              } : {})
+            },
+            select: {
+              serviceNumber: true,
+              fullName: true,
+              id: true
+            }
+          }
+        }
+      });
+
+      // Transform the response to handle arrays
+      return users
+        .map(user => {
+          const guardInfo = user.guard?.[0];
+          const employeeInfo = user.employee?.[0];
+          const person = guardInfo || employeeInfo;
+          
+          if (!person) return null;
+
+          return {
+            id: user.id,
+            serviceNumber: person.serviceNumber,
+            fullName: person.fullName,
+            personType: guardInfo ? 'guard' : 'employee'
+          };
+        })
+        .filter(Boolean); // Filter out null values
+    } catch (error) {
+      // Log the error for debugging
+      console.error('Error in getSupervisors:', error);
+      
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      // Handle Prisma errors
+      if (typeof handlePrismaError === 'function') {
+        handlePrismaError(error);
+      }
+      
+      throw new InternalServerErrorException('Failed to fetch supervisors', {
+        cause: error
+      });
+    }
+  }
+
   async createServiceNumberUser(
     data: CreateServiceNumberUserDto,
     organizationId: string,
