@@ -13,8 +13,8 @@ export class AuthResponseDto {
       role: { type: 'string', nullable: true },
       organizationId: { type: 'string', nullable: true },
       features: { type: 'array', items: { type: 'string' }, nullable: true },
-      isSuperAdmin: { type: 'boolean', nullable: true }
-    }
+      isSuperAdmin: { type: 'boolean', nullable: true },
+    },
   })
   user!: {
     id: string;

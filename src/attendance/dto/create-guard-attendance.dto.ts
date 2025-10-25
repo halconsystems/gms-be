@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, IsUUID, IsOptional, IsEnum, IsDateString, IsNotEmpty } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  IsNotEmpty,
+} from 'class-validator';
 import { AttendanceEnum } from 'src/common/enums/attendance-enum';
 
 export class CreateGuardAttendanceDto {
@@ -20,7 +28,8 @@ export class CreateGuardAttendanceDto {
 
   @ApiProperty({
     enum: AttendanceEnum,
-    description: 'Attendance type: P = Present, A = Absent, R = Relief, L = Leave',
+    description:
+      'Attendance type: P = Present, A = Absent, R = Relief, L = Leave',
     example: AttendanceEnum.P,
   })
   @IsNotEmpty()

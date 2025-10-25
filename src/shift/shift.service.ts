@@ -30,12 +30,12 @@ export class ShiftService {
   }
 
   async update(id: string, dto: UpdateShiftDto) {
-    await this.findOne(id); 
+    await this.findOne(id);
     return this.prisma.shift.update({ where: { id }, data: dto });
   }
 
   async remove(id: string) {
-    await this.findOne(id); 
+    await this.findOne(id);
     return this.prisma.shift.delete({ where: { id } });
   }
 }

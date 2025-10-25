@@ -9,6 +9,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @Module({
   imports: [FileModule],
   providers: [OrganizationService, UserService, RoleService, PrismaService],
-  controllers: [OrganizationController]
+  controllers: [OrganizationController],
 })
 export class OrganizationModule {}

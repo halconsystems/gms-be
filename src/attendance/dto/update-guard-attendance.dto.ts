@@ -1,15 +1,20 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateGuardAttendanceDto } from './create-guard-attendance.dto';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 import { AttendanceEnum } from 'src/common/enums/attendance-enum';
 
 export class UpdateGuardAttendanceDto {
-
   @ApiProperty()
   @IsNotEmpty()
   @IsUUID()
-  id: string;  
+  id: string;
 
   @ApiProperty()
   @IsOptional()
@@ -23,7 +28,8 @@ export class UpdateGuardAttendanceDto {
 
   @ApiProperty({
     enum: AttendanceEnum,
-    description: 'Attendance type: P = Present, A = Absent, R = Relief, L = Leave',
+    description:
+      'Attendance type: P = Present, A = Absent, R = Relief, L = Leave',
     example: AttendanceEnum.P,
   })
   @IsOptional()
@@ -35,4 +41,3 @@ export class UpdateGuardAttendanceDto {
   @IsDateString()
   date: string;
 }
-

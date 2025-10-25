@@ -13,8 +13,7 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 class CreateRequestedGuardFinanceDto {
-  
-  // @ApiProperty()  
+  // @ApiProperty()
   // @IsUUID()
   // @IsNotEmpty()
   // requestedGuardId: string;
@@ -23,7 +22,7 @@ class CreateRequestedGuardFinanceDto {
   // @IsUUID()
   // @IsNotEmpty()
   // locationId: string;
-  
+
   @ApiProperty()
   @IsNumber()
   salaryPerMonth: number;
@@ -42,7 +41,6 @@ class CreateRequestedGuardFinanceDto {
 }
 
 class CreateRequestedGuardDto {
-
   @ApiProperty()
   @IsUUID()
   @IsNotEmpty()
@@ -73,7 +71,7 @@ class CreateRequestedGuardDto {
   @IsNumber()
   allowance: number;
 
-  @ApiProperty({type : ()=> CreateRequestedGuardFinanceDto})
+  @ApiProperty({ type: () => CreateRequestedGuardFinanceDto })
   @ValidateNested()
   @Type(() => CreateRequestedGuardFinanceDto)
   finances: CreateRequestedGuardFinanceDto;
@@ -104,21 +102,20 @@ export class CreateLocationTaxDto {
 }
 
 export class CreateLocationDto {
-
-  @ApiProperty()  
+  @ApiProperty()
   @IsUUID()
   clientId: string;
 
-  @ApiProperty()  
+  @ApiProperty()
   @IsUUID()
   officeId: string;
 
-  @ApiProperty()  
+  @ApiProperty()
   @IsString()
   locationName: string;
 
   @ApiProperty()
-  @IsOptional()  
+  @IsOptional()
   @IsString()
   createdLocationId: string;
 
@@ -159,7 +156,7 @@ export class CreateLocationDto {
   authorizedPersonNumber: string;
 
   @ApiProperty()
-  @IsOptional() 
+  @IsOptional()
   @IsString()
   authorizedPersonDesignation: string;
 
@@ -173,5 +170,4 @@ export class CreateLocationDto {
   @ValidateNested({ each: true })
   @Type(() => CreateRequestedGuardDto)
   requestedGuards: CreateRequestedGuardDto[];
-
 }

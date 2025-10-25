@@ -1,4 +1,16 @@
-import { Controller, Post, Body, UseGuards, UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, ValidationPipe, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
+  ValidationPipe,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { FileService } from './file.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/role.decorator';
@@ -17,7 +29,7 @@ export class FileController {
   constructor(private readonly fileService: FileService) {}
 
   @Post('presigned-url')
-  @ApiOperation({ summary: "get S3 bucket presigned url" })
+  @ApiOperation({ summary: 'get S3 bucket presigned url' })
   async getPresignedUrl(@Body() body: FileUploadDto) {
     try {
       // Return raw result here. A global TransformInterceptor will wrap this
@@ -27,14 +39,14 @@ export class FileController {
       return result;
     } catch (error) {
       throw new InternalServerErrorException(
-        error.message || 'Failed to generate upload URL'
+        error.message || 'Failed to generate upload URL',
       );
     }
   }
 
   @Post('download-url')
   @ApiBearerAuth('jwt')
-  @ApiOperation({ summary :"get S3 bucket download url" })
+  @ApiOperation({ summary: 'get S3 bucket download url' })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolesEnum.organizationAdmin)
   async getDownloadUrl(@Body() body: FileGetDto) {
@@ -48,7 +60,6 @@ export class FileController {
     return this.fileService.parseCSV(file.buffer);
   }
 
-
   @Post('upload/guards')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -58,13 +69,16 @@ export class FileController {
   async uploadGuards(
     @GetOrganizationId() organizationId: string,
     @Body(new ValidationPipe({ whitelist: true })) officeId,
-    @UploadedFile( new ParseFilePipe({
-    validators: [
-      new MaxFileSizeValidator({ maxSize: 10485760 }),
-      // new FileTypeValidator({ fileType: "/csv" })
-    ],
-  }),) file: Express.Multer.File) {
-    return this.fileService.uploadGuards(organizationId, officeId ,file.buffer);
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10485760 }),
+          // new FileTypeValidator({ fileType: "/csv" })
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.fileService.uploadGuards(organizationId, officeId, file.buffer);
   }
-
 }

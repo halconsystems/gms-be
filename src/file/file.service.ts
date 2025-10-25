@@ -100,7 +100,7 @@ export class FileService {
         },
         error: (error) => {
           reject(error);
-        }
+        },
       });
     });
   }
@@ -108,15 +108,15 @@ export class FileService {
   async uploadGuards(organizationId: string, officeId: string, buffer: Buffer) {
     try {
       const guardsList = await this.parseCSV(buffer);
-      
+
       console.log('Parsed CSV data:', guardsList); // Log parsed data
-      
+
       const validatedGuards: GuardUploadDto[] = [];
       const errorsList: any[] = [];
 
       for (const [index, guardData] of guardsList.entries()) {
         console.log(`Validating guard at row ${index + 1}:`, guardData); // Log each guard data
-        
+
         const guardDto = plainToInstance(GuardUploadDto, guardData);
         const errors = await validate(guardDto);
 
@@ -138,7 +138,7 @@ export class FileService {
       }
 
       console.log('Total guards to create:', validatedGuards.length); // Log number of valid guards
-      
+
       if (errorsList.length > 0) {
         console.log('Validation errors found:', errorsList); // Log all validation errors
         return { success: false, errors: errorsList };
@@ -198,7 +198,7 @@ export class FileService {
       return {
         success: false,
         message: 'Failed to create guards. Please check your data.',
-        error: error.message
+        error: error.message,
       };
     }
   }

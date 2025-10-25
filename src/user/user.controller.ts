@@ -1,4 +1,13 @@
-import { Controller, Post, Body, Get, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateEmployeeUserDto } from './dto/create-employee-user.dto';
@@ -24,7 +33,7 @@ export class UserController {
   @ResponseMessage('User created successfully')
   create(
     @Body() createUserDto: CreateUserDto,
-    @GetOrganizationId() organizationId: string
+    @GetOrganizationId() organizationId: string,
   ) {
     return this.userService.create(createUserDto, organizationId);
   }
@@ -34,21 +43,32 @@ export class UserController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('User created successfully')
-  createEmployeeUser(@Body() createEmployeeUserDto: CreateEmployeeUserDto, @GetOrganizationId() organizationId: string) {
-    return this.userService.createEmployeeUser(createEmployeeUserDto, organizationId);
+  createEmployeeUser(
+    @Body() createEmployeeUserDto: CreateEmployeeUserDto,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return this.userService.createEmployeeUser(
+      createEmployeeUserDto,
+      organizationId,
+    );
   }
 
   @Post('/create-by-service-number')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolesEnum.organizationAdmin)
-  @ApiOperation({ summary: 'Create user by service number for employee or guard' })
+  @ApiOperation({
+    summary: 'Create user by service number for employee or guard',
+  })
   @ResponseMessage('User created successfully')
   createServiceNumberUser(
     @Body() createServiceNumberUserDto: CreateServiceNumberUserDto,
     @GetOrganizationId() organizationId: string,
   ) {
-    return this.userService.createServiceNumberUser(createServiceNumberUserDto, organizationId);
+    return this.userService.createServiceNumberUser(
+      createServiceNumberUserDto,
+      organizationId,
+    );
   }
 
   @Get()
@@ -67,9 +87,12 @@ export class UserController {
   async getSupervisors(
     @GetOrganizationId() organizationId: string,
     @Query('locationId') locationId?: string,
-    @Query('clientId') clientId?: string
+    @Query('clientId') clientId?: string,
   ) {
-    const supervisors = await this.userService.getSupervisors(organizationId, { locationId, clientId });
+    const supervisors = await this.userService.getSupervisors(organizationId, {
+      locationId,
+      clientId,
+    });
     // Return directly without wrapping, as @ResponseMessage will handle the wrapping
     return supervisors;
   }

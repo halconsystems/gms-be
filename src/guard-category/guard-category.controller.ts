@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Param, Patch, Delete, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  Patch,
+  Delete,
+  Body,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { GuardCategoryService } from './guard-category.service';
 import { CreateGuardCategoryDto } from './dto/create-guard-category.dto';
@@ -20,8 +29,11 @@ export class GuardCategoryController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Guard Category created successfully')
-  create(@Body() dto: CreateGuardCategoryDto, @GetOrganizationId() organizationId : string) {
-    return this.service.create(dto,organizationId);
+  create(
+    @Body() dto: CreateGuardCategoryDto,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return this.service.create(dto, organizationId);
   }
 
   @Get()
@@ -29,12 +41,12 @@ export class GuardCategoryController {
     return this.service.findAll();
   }
 
-  @Get("by-organization")
+  @Get('by-organization')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Guard Category fetched successfully')
-  findAllByOrganization(@GetOrganizationId() organizationId : string) {
+  findAllByOrganization(@GetOrganizationId() organizationId: string) {
     return this.service.findAllByOrganizationId(organizationId);
   }
 
@@ -43,8 +55,11 @@ export class GuardCategoryController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Guard Category fetched successfully')
-  findOne(@Param('id') id: string, @GetOrganizationId() organizationId : string) {
-    return this.service.findOne(id,organizationId);
+  findOne(
+    @Param('id') id: string,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return this.service.findOne(id, organizationId);
   }
 
   @Patch(':id')
@@ -52,8 +67,12 @@ export class GuardCategoryController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Guard Category updated successfully')
-  update(@Param('id') id: string, @Body() dto: UpdateGuardCategoryDto, @GetOrganizationId() organizationId : string) {
-    return this.service.update(id, dto, organizationId );
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateGuardCategoryDto,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return this.service.update(id, dto, organizationId);
   }
 
   @Delete(':id')
@@ -61,7 +80,7 @@ export class GuardCategoryController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Guard Category deleted successfully')
-  remove(@Param('id') id: string, @GetOrganizationId() organizationId : string) {
+  remove(@Param('id') id: string, @GetOrganizationId() organizationId: string) {
     return this.service.remove(id, organizationId);
   }
 }

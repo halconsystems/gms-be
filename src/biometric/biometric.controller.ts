@@ -2,10 +2,9 @@ import { Controller, Get, Post } from '@nestjs/common';
 import { BiometricService } from './biometric.service';
 import { ApiTags } from '@nestjs/swagger';
 
-@ApiTags("Biometric")
+@ApiTags('Biometric')
 @Controller('biometric')
 export class BiometricController {
-
   constructor(private readonly biometric: BiometricService) {}
 
   @Get('logs')

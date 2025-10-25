@@ -5,10 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
-  imports :[PrismaModule],
+  imports: [PrismaModule],
   controllers: [RoleController],
   providers: [RoleService, PrismaService],
 })
-
 export class RoleModule {}
-

@@ -3,10 +3,9 @@ const ZKTeco = require('zkteco');
 
 @Injectable()
 export class BiometricService {
-
   private readonly logger = new Logger(BiometricService.name);
   private zkInstance: any;
-  private readonly deviceIp = '192.168.1.201';  
+  private readonly deviceIp = '192.168.1.201';
   private readonly devicePort = '4370';
 
   async onModuleInit() {

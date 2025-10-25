@@ -7,13 +7,13 @@ import { Prisma, PrismaClient } from '@prisma/client';
 
 // Define expected JWT payload shape
 interface JwtPayload {
-  sub: string;         // User ID
-  email: string;       // User email
-  organizationId?: string;  // Organization ID (optional because superAdmin might not have one)
+  sub: string; // User ID
+  email: string; // User email
+  organizationId?: string; // Organization ID (optional because superAdmin might not have one)
   features?: string[]; // Organization features
-  role?: string;       // User role
-  iat?: number;        // Issued at
-  exp?: number;        // Expiration
+  role?: string; // User role
+  iat?: number; // Issued at
+  exp?: number; // Expiration
 }
 
 type UserWithRelations = Prisma.UserGetPayload<{
@@ -24,20 +24,20 @@ type UserWithRelations = Prisma.UserGetPayload<{
           include: {
             organizationFeatures: {
               include: {
-                feature: true
-              }
-            }
-          }
-        }
-      }
+                feature: true;
+              };
+            };
+          };
+        };
+      };
     };
     userRoles: {
       include: {
-        role: true
-      }
+        role: true;
+      };
     };
   };
-}>
+}>;
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -83,19 +83,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 include: {
                   organizationFeatures: {
                     include: {
-                      feature: true
-                    }
-                  }
-                }
-              }
-            }
+                      feature: true,
+                    },
+                  },
+                },
+              },
+            },
           },
           userRoles: {
             include: {
-              role: true
-            }
-          }
-        }
+              role: true,
+            },
+          },
+        },
       });
 
       const validatedUser = user as UserWithRelations;
@@ -107,18 +107,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // 3. Get organization info (if not superadmin)
       const organization = validatedUser.userOffice?.[0]?.organization;
       const organizationId = organization?.id;
-      const features = organization?.organizationFeatures?.map(f => f.feature.name) || [];
+      const features =
+        organization?.organizationFeatures?.map((f) => f.feature.name) || [];
 
       // 4. Check role (superadmin doesn't need organizationId)
-      const isSuperAdmin = validatedUser.userRoles.some(ur => ur.role.roleName === 'superAdmin');
-      
+      const isSuperAdmin = validatedUser.userRoles.some(
+        (ur) => ur.role.roleName === 'superAdmin',
+      );
+
       if (!isSuperAdmin && !organizationId) {
-        this.logger.warn(`Non-superadmin user ${validatedUser.id} has no organization`);
+        this.logger.warn(
+          `Non-superadmin user ${validatedUser.id} has no organization`,
+        );
         throw new UnauthorizedException('User has no organization access');
-      }      // 5. If no features found for organization user, log warning
+      } // 5. If no features found for organization user, log warning
       if (!isSuperAdmin && organizationId && features.length === 0) {
         this.logger.warn(
-          `User ${validatedUser.id} organization ${organizationId} has no features`
+          `User ${validatedUser.id} organization ${organizationId} has no features`,
         );
       }
 
@@ -127,13 +132,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       return {
         id: validatedUser.id,
         email: validatedUser.email,
-        organizationId,  // Will be undefined for superadmin
-        features,        // Empty array if no features
+        organizationId, // Will be undefined for superadmin
+        features, // Empty array if no features
         isSuperAdmin,
         role: validatedUser.userRoles[0]?.role.roleName || 'user',
         // Add any other needed user fields
       };
-
     } catch (error) {
       // Log unexpected errors but don't expose internals
       if (!(error instanceof UnauthorizedException)) {

@@ -1,4 +1,4 @@
 export enum TransferType {
-    IFT,
-    IBFT
+  IFT,
+  IBFT,
 }

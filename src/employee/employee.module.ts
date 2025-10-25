@@ -10,6 +10,6 @@ import { GuardModule } from 'src/guard/guard.module';
   imports: [forwardRef(() => GuardModule)],
   providers: [EmployeeService, UserService, RoleService],
   controllers: [EmployeeController],
-  exports: [EmployeeService]
+  exports: [EmployeeService],
 })
 export class EmployeeModule {}

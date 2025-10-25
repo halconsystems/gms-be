@@ -57,7 +57,9 @@ export class OrganizationController {
 
   @Post('register')
   @ResponseMessage('Organization registered successfully')
-  async create(@Body() dto: CreateOrganizationDto): Promise<CreateOrganizationResponse> {
+  async create(
+    @Body() dto: CreateOrganizationDto,
+  ): Promise<CreateOrganizationResponse> {
     try {
       console.log('Creating organization with data:', {
         ...dto,
@@ -98,7 +100,10 @@ export class OrganizationController {
   @Post('add-office')
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Office created successfully')
-  addOffice(@Body() dto: CreateOfficeDto, @GetOrganizationId() organizationId: string) {
+  addOffice(
+    @Body() dto: CreateOfficeDto,
+    @GetOrganizationId() organizationId: string,
+  ) {
     return this.organizationService.addOffice(dto, organizationId);
   }
 
@@ -129,7 +134,10 @@ export class OrganizationController {
   @Delete('delete-office/:id')
   @Roles(RolesEnum.organizationAdmin)
   @ResponseMessage('Office deleted successfully')
-  deleteOffice(@Param('id') id: string, @GetOrganizationId() organizationId: string) {
+  deleteOffice(
+    @Param('id') id: string,
+    @GetOrganizationId() organizationId: string,
+  ) {
     return this.organizationService.deleteOffice(id, organizationId);
   }
 

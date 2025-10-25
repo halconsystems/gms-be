@@ -14,11 +14,17 @@ export function handlePrismaError(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     switch (error.code) {
       case 'P2002': {
-        const fields = (error.meta?.target as string[] | undefined)?.join(', ') || 'Field';
+        const fields =
+          (error.meta?.target as string[] | undefined)?.join(', ') || 'Field';
         const constraintName = error.meta?.constraint as string | undefined;
 
-        if (constraintName?.includes('service') || fields.includes('serviceNumber')) {
-          throw new ConflictException('A person with this service number already exists in this organization');
+        if (
+          constraintName?.includes('service') ||
+          fields.includes('serviceNumber')
+        ) {
+          throw new ConflictException(
+            'A person with this service number already exists in this organization',
+          );
         }
 
         throw new ConflictException(`${fields} must be unique.`);
@@ -27,7 +33,9 @@ export function handlePrismaError(error: unknown) {
       case 'P2003': {
         const field = error.meta?.field_name as string | undefined;
         if (field?.includes('userId')) {
-          throw new BadRequestException('Invalid user ID or the user does not exist');
+          throw new BadRequestException(
+            'Invalid user ID or the user does not exist',
+          );
         }
         throw new BadRequestException('Invalid reference to another record.');
       }
@@ -36,10 +44,9 @@ export function handlePrismaError(error: unknown) {
         throw new NotFoundException('Record not found.');
 
       default:
-        throw new InternalServerErrorException(
-          'A database error occurred.',
-          { cause: error },
-        );
+        throw new InternalServerErrorException('A database error occurred.', {
+          cause: error,
+        });
     }
   }
 

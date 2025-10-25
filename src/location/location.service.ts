@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, InternalServerErrorException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
@@ -8,14 +13,19 @@ import { generateRandomNumber } from 'src/common/utils/random-num-generator';
 export class LocationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateLocationDto, organizationId : string) {
+  async create(dto: CreateLocationDto, organizationId: string) {
     try {
+      const generatedId: number = generateRandomNumber(5);
 
-      const generatedId : number = generateRandomNumber(5);
+      const location = await this.prisma.location.findFirst({
+        where: {
+          organizationId: organizationId,
+          locationName: dto.locationName,
+        },
+      });
+      if (location)
+        throw new ConflictException('Given location name already exists');
 
-      const location = await this.prisma.location.findFirst({ where  : { organizationId : organizationId , locationName : dto.locationName }});
-      if(location) throw new ConflictException("Given location name already exists");
-      
       return await this.prisma.location.create({
         data: {
           organizationId: organizationId,
@@ -31,31 +41,33 @@ export class LocationService {
           authorizedPersonName: dto.authorizedPersonName,
           authorizedPersonNumber: dto.authorizedPersonNumber,
           authorizedPersonDesignation: dto.authorizedPersonDesignation,
-          taxes : { create : dto.taxes.map((tax) => ({
-            addInvoice : tax.addInvoice,
-            amount : tax.amount,
-            percentage :tax.percentage,
-            taxType : tax.taxType
-          })) },
+          taxes: {
+            create: dto.taxes.map((tax) => ({
+              addInvoice: tax.addInvoice,
+              amount: tax.amount,
+              percentage: tax.percentage,
+              taxType: tax.taxType,
+            })),
+          },
           requestedGuards: {
-                create: dto.requestedGuards.map((guard) => ({
-                  guardCategoryId: guard.guardCategoryId,
-                  shiftId: guard.shiftId,
-                  quantity: guard.quantity,
-                  gazettedHoliday : guard.gazettedHoliday,
-                  chargesPerMonth: guard.chargesPerMonth,
-                  overtimePerHour: guard.overtimePerHour,
-                  allowance: guard.allowance,
-                  finances: {
-                        create: {
-                          gazettedHoliday : guard.finances.gazettedHoliday,
-                          salaryPerMonth: guard.finances.salaryPerMonth,
-                          overtimePerHour: guard.finances.overtimePerHour,
-                          allowance: guard.finances.allowance,
-                        },
-                      }
-                })),
-              }
+            create: dto.requestedGuards.map((guard) => ({
+              guardCategoryId: guard.guardCategoryId,
+              shiftId: guard.shiftId,
+              quantity: guard.quantity,
+              gazettedHoliday: guard.gazettedHoliday,
+              chargesPerMonth: guard.chargesPerMonth,
+              overtimePerHour: guard.overtimePerHour,
+              allowance: guard.allowance,
+              finances: {
+                create: {
+                  gazettedHoliday: guard.finances.gazettedHoliday,
+                  salaryPerMonth: guard.finances.salaryPerMonth,
+                  overtimePerHour: guard.finances.overtimePerHour,
+                  allowance: guard.finances.allowance,
+                },
+              },
+            })),
+          },
         },
         include: {
           requestedGuards: {
@@ -103,49 +115,49 @@ export class LocationService {
 
   async findByOrganizationId(organizationId: string) {
     const location = await this.prisma.location.findMany({
-      where: { 
-        organizationId : organizationId,
-        assignedGuard : {
-          every : {
-            deploymentTill : null
-          }
-        } 
+      where: {
+        organizationId: organizationId,
+        assignedGuard: {
+          every: {
+            deploymentTill: null,
+          },
+        },
       },
       include: {
-        assignedGuard : {
-          select : {
-            deploymentDate : true,
-            deploymentTill : true,
-            guardCategory : {
-              select : {
-                categoryName : true
-              }
+        assignedGuard: {
+          select: {
+            deploymentDate: true,
+            deploymentTill: true,
+            guardCategory: {
+              select: {
+                categoryName: true,
+              },
             },
-            guard : {
-              select : {
-                fullName : true,
-                serviceNumber : true
-              }
-            }
-
-          }
+            guard: {
+              select: {
+                id: true,
+                fullName: true,
+                serviceNumber: true,
+              },
+            },
+          },
         },
-        client : {
-          select : {
-            id : true,
-            contractNumber : true,
-            companyName : true,
-            contactNumber : true,
-            industry : true,
-            address : true,
-            city : true,
-            state : true,
-          }
+        client: {
+          select: {
+            id: true,
+            contractNumber: true,
+            companyName: true,
+            contactNumber: true,
+            industry: true,
+            address: true,
+            city: true,
+            state: true,
+          },
         },
         requestedGuards: {
           include: {
-            guardCategory : {
-              select : { categoryName : true}
+            guardCategory: {
+              select: { categoryName: true },
             },
             finances: true,
           },
@@ -156,14 +168,14 @@ export class LocationService {
     return location;
   }
 
-  async findByClientId(clientId : string , organizationId : string) {
+  async findByClientId(clientId: string, organizationId: string) {
     const location = await this.prisma.location.findMany({
       where: {
-        clientId : clientId, 
-        organizationId : organizationId 
+        clientId: clientId,
+        organizationId: organizationId,
       },
       include: {
-        assignedGuard : true,
+        assignedGuard: true,
         requestedGuards: {
           include: {
             finances: true,
@@ -175,43 +187,48 @@ export class LocationService {
     return location;
   }
 
-  async findAssignedGuardByLocation(locationId : string , organizationId : string) {
+  async findAssignedGuardByLocation(
+    locationId: string,
+    organizationId: string,
+  ) {
     const locations = await this.prisma.location.findMany({
       where: {
-        id : locationId,
-        organizationId : organizationId,
-        assignedGuard : {
-          every : {
-            deploymentTill : null
-          }
-        }
+        id: locationId,
+        organizationId: organizationId,
+        assignedGuard: {
+          every: {
+            deploymentTill: null,
+          },
+        },
       },
-      select: {        
-        assignedGuard : {
-          select  : {
-            requestedGuard : {
-              select : {
-                Shift : true,
-              }
+      select: {
+        assignedGuard: {
+          select: {
+            requestedGuard: {
+              select: {
+                Shift: true,
+              },
             },
-            deploymentDate : true,
-            deploymentTill : true,
-            guardCategory : {
-              select : {
-                categoryName : true
-              }
+            deploymentDate: true,
+            deploymentTill: true,
+            guardCategory: {
+              select: {
+                categoryName: true,
+              },
             },
-            guard : true
-          }
+            guard: true,
+          },
         },
       },
     });
 
-      const assignedGuards = locations[0]?.assignedGuard ?? [];
+    const assignedGuards = locations[0]?.assignedGuard ?? [];
 
-      const enriched = assignedGuards.map((ag) => {
+    const enriched = assignedGuards.map((ag) => {
       const deploymentDate = new Date(ag.deploymentDate);
-      const deploymentTill = ag.deploymentTill ? new Date(ag.deploymentTill) : new Date();
+      const deploymentTill = ag.deploymentTill
+        ? new Date(ag.deploymentTill)
+        : new Date();
 
       const timeDiff = deploymentTill.getTime() - deploymentDate.getTime();
       const totalWorkingDays = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
@@ -225,26 +242,38 @@ export class LocationService {
     return enriched;
   }
 
-    async update(id: string, dto: Partial<CreateLocationDto>, organizationId: string) {
+  async update(
+    id: string,
+    dto: Partial<CreateLocationDto>,
+    organizationId: string,
+  ) {
     try {
       const updateData: any = {
         ...(dto.clientId && { clientId: dto.clientId }),
         ...(dto.locationName && { locationName: dto.locationName }),
-        ...(dto.createdLocationId && { createdLocationId: dto.createdLocationId }),
+        ...(dto.createdLocationId && {
+          createdLocationId: dto.createdLocationId,
+        }),
         ...(dto.address && { address: dto.address }),
         ...(dto.city && { city: dto.city }),
         ...(dto.provinceState && { provinceState: dto.provinceState }),
         ...(dto.country && { country: dto.country }),
         ...(dto.GPScoordinate && { GPScoordinate: dto.GPScoordinate }),
         ...(dto.locationTypeId && { locationTypeId: dto.locationTypeId }),
-        ...(dto.authorizedPersonName && { authorizedPersonName: dto.authorizedPersonName }),
-        ...(dto.authorizedPersonNumber && { authorizedPersonNumber: dto.authorizedPersonNumber }),
-        ...(dto.authorizedPersonDesignation && { authorizedPersonDesignation: dto.authorizedPersonDesignation }),
+        ...(dto.authorizedPersonName && {
+          authorizedPersonName: dto.authorizedPersonName,
+        }),
+        ...(dto.authorizedPersonNumber && {
+          authorizedPersonNumber: dto.authorizedPersonNumber,
+        }),
+        ...(dto.authorizedPersonDesignation && {
+          authorizedPersonDesignation: dto.authorizedPersonDesignation,
+        }),
       };
 
       if (dto.taxes) {
         updateData.taxes = {
-          deleteMany: {}, 
+          deleteMany: {},
           create: dto.taxes.map((tax) => ({
             addInvoice: tax.addInvoice,
             amount: tax.amount,
@@ -256,7 +285,7 @@ export class LocationService {
 
       if (dto.requestedGuards) {
         updateData.requestedGuards = {
-          deleteMany: {}, 
+          deleteMany: {},
           create: dto.requestedGuards.map((guard) => ({
             guardCategoryId: guard.guardCategoryId,
             shiftId: guard.shiftId,
@@ -267,7 +296,7 @@ export class LocationService {
             allowance: guard.allowance,
             finances: {
               create: {
-                gazettedHoliday : guard.finances.gazettedHoliday,
+                gazettedHoliday: guard.finances.gazettedHoliday,
                 salaryPerMonth: guard.finances.salaryPerMonth,
                 overtimePerHour: guard.finances.overtimePerHour,
                 allowance: guard.finances.allowance,
@@ -296,10 +325,8 @@ export class LocationService {
     }
   }
 
-
   async remove(id: string) {
     try {
-
       // First delete RequestedGuardFinance → RequestedGuard → Location
 
       const requestedGuards = await this.prisma.requestedGuard.findMany({
@@ -319,7 +346,7 @@ export class LocationService {
 
       await this.prisma.location.delete({
         where: { id },
-      });  
+      });
 
       return await this.prisma.location.delete({ where: { id } });
     } catch (error) {
@@ -329,23 +356,26 @@ export class LocationService {
 
   async getRequestedGuardsByLocationId(locationId: string) {
     try {
-      return await this.prisma.requestedGuard.findMany({ 
-        where: { locationId: locationId, },
+      return await this.prisma.requestedGuard.findMany({
+        where: { locationId: locationId },
         include: {
           guardCategory: {
             select: {
               id: true,
-              categoryName: true
-            }
-          }
-        }
+              categoryName: true,
+            },
+          },
+        },
       });
     } catch (error) {
       handlePrismaError(error);
     }
   }
 
-  async findLocationsBySupervisorId(supervisorEmployeeId: string, organizationId: string) {
+  async findLocationsBySupervisorId(
+    supervisorEmployeeId: string,
+    organizationId: string,
+  ) {
     try {
       const locations = await this.prisma.location.findMany({
         where: {
@@ -353,9 +383,9 @@ export class LocationService {
           assignedSupervisor: {
             some: {
               supervisorEmployeeId,
-              deploymentTill: null
-            }
-          }
+              deploymentTill: null,
+            },
+          },
         },
         select: {
           id: true,
@@ -373,12 +403,12 @@ export class LocationService {
             select: {
               companyName: true,
               contractNumber: true,
-              contactNumber: true
-            }
+              contactNumber: true,
+            },
           },
           assignedGuard: {
             where: {
-              deploymentTill: null // Only currently assigned guards
+              deploymentTill: null, // Only currently assigned guards
             },
             select: {
               id: true,
@@ -388,21 +418,21 @@ export class LocationService {
                   id: true,
                   fullName: true,
                   serviceNumber: true,
-                  contactNumber: true
-                }
+                  contactNumber: true,
+                },
               },
               guardCategory: {
                 select: {
-                  categoryName: true
-                }
-              }
-            }
-          }
-        }
+                  categoryName: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       // Transform the data to add guard count and format it
-      return locations.map(location => ({
+      return locations.map((location) => ({
         id: location.id,
         locationName: location.locationName,
         address: location.address,
@@ -413,26 +443,26 @@ export class LocationService {
         authorizedPerson: {
           name: location.authorizedPersonName,
           number: location.authorizedPersonNumber,
-          designation: location.authorizedPersonDesignation
+          designation: location.authorizedPersonDesignation,
         },
         client: {
           companyName: location.client.companyName,
           contractNumber: location.client.contractNumber,
-          contactNumber: location.client.contactNumber
+          contactNumber: location.client.contactNumber,
         },
         guards: {
           totalCount: location.assignedGuard.length,
-          list: location.assignedGuard.map(ag => ({
+          list: location.assignedGuard.map((ag) => ({
             id: ag.id,
             guardId: ag.guard.id,
             name: ag.guard.fullName,
             serviceNumber: ag.guard.serviceNumber,
             contactNumber: ag.guard.contactNumber,
             category: ag.guardCategory.categoryName,
-            deploymentDate: ag.deploymentDate
-          }))
+            deploymentDate: ag.deploymentDate,
+          })),
         },
-        isActive: location.isActive
+        isActive: location.isActive,
       }));
     } catch (error) {
       handlePrismaError(error);

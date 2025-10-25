@@ -3,8 +3,8 @@ import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty()
-  @IsNotEmpty()  
-  userName : string;  
+  @IsNotEmpty()
+  userName: string;
 
   @ApiProperty()
   @IsEmail()
@@ -17,5 +17,5 @@ export class RegisterDto {
 
   @ApiProperty()
   @IsString()
-  roleName : string;
+  roleName: string;
 }

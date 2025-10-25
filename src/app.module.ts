@@ -32,7 +32,7 @@ import { PersonsModule } from './persons/persons.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal:true,
+      isGlobal: true,
     }),
     ThrottlerModule.forRoot([
       // {
@@ -48,19 +48,40 @@ import { PersonsModule } from './persons/persons.module';
       {
         name: 'long',
         ttl: 60000,
-        limit: 500
-      }
+        limit: 500,
+      },
     ]),
-    AuthModule, UserModule, RoleModule, UserRoleModule, PrismaModule, GuardCategoryModule, OrganizationModule, GuardModule, EmployeeModule, ClientModule, LocationModule, ShiftModule, FileModule, LocationTypeModule, AttendanceModule, PayrollModule, BiometricModule, AccountsModule, PersonsModule,
+    AuthModule,
+    UserModule,
+    RoleModule,
+    UserRoleModule,
+    PrismaModule,
+    GuardCategoryModule,
+    OrganizationModule,
+    GuardModule,
+    EmployeeModule,
+    ClientModule,
+    LocationModule,
+    ShiftModule,
+    FileModule,
+    LocationTypeModule,
+    AttendanceModule,
+    PayrollModule,
+    BiometricModule,
+    AccountsModule,
+    PersonsModule,
   ],
   controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard, 
+      useClass: ThrottlerGuard,
     },
-    AppService, FileService,GuardService, BiometricService, AccountsService
+    AppService,
+    FileService,
+    GuardService,
+    BiometricService,
+    AccountsService,
   ],
 })
 export class AppModule {}
-  

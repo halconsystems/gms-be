@@ -11,18 +11,18 @@ import { PersonsService } from './persons.service';
 @ApiTags('persons')
 @Controller('persons')
 export class PersonsController {
-    constructor(private readonly personsService: PersonsService) {}
+  constructor(private readonly personsService: PersonsService) {}
 
-    @Get('search')
-    @ApiBearerAuth('jwt')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(RolesEnum.organizationAdmin)
-    @ApiOperation({ summary: 'Search persons by service number or name' })
-    @ResponseMessage('Persons fetched successfully')
-    async searchPersons(
-        @Query('search') search: string,
-        @GetOrganizationId() organizationId: string,
-    ) {
-        return await this.personsService.searchPersons(search, organizationId);
-    }
+  @Get('search')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin)
+  @ApiOperation({ summary: 'Search persons by service number or name' })
+  @ResponseMessage('Persons fetched successfully')
+  async searchPersons(
+    @Query('search') search: string,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return await this.personsService.searchPersons(search, organizationId);
+  }
 }

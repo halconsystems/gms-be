@@ -3,8 +3,8 @@ import { Prisma } from '@prisma/client';
 export const fullUserInclude = {
   userRoles: {
     include: {
-      role: true
-    }
+      role: true,
+    },
   },
   employee: {
     include: {
@@ -15,7 +15,7 @@ export const fullUserInclude = {
             include: {
               assignedGuard: {
                 where: {
-                  deploymentTill: null
+                  deploymentTill: null,
                 },
                 include: {
                   guard: {
@@ -23,30 +23,30 @@ export const fullUserInclude = {
                       id: true,
                       fullName: true,
                       serviceNumber: true,
-                      contactNumber: true
-                    }
+                      contactNumber: true,
+                    },
                   },
                   guardCategory: {
                     select: {
-                      categoryName: true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                      categoryName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   organizations: {
     include: {
       organizationFeatures: {
         include: {
-          feature: true
-        }
-      }
-    }
+          feature: true,
+        },
+      },
+    },
   },
   userOffice: {
     include: {
@@ -54,13 +54,13 @@ export const fullUserInclude = {
         include: {
           organizationFeatures: {
             include: {
-              feature: true
-            }
-          }
-        }
-      }
-    }
-  }
+              feature: true,
+            },
+          },
+        },
+      },
+    },
+  },
 } as const;
 
 type FullUserEmployee = {

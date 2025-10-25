@@ -11,7 +11,7 @@ export enum OrganizationFeatures {
   SALES_MONITOR = 'Sales Monitor',
   COMPLAINTS = 'Complaints',
   NOTIFICATIONS = 'Notifications/Announcements',
-  REPORTS = 'Reports'
+  REPORTS = 'Reports',
 }
 
 export const ALL_FEATURES = Object.values(OrganizationFeatures);

@@ -1,8 +1,13 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateLocationPayRollDto {
-
   @ApiProperty()
   @IsUUID()
   locationId: string;
@@ -14,5 +19,4 @@ export class CreateLocationPayRollDto {
   @ApiProperty()
   @IsString()
   endDate: string;
-
 }

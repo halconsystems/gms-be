@@ -13,29 +13,29 @@ async function bootstrap() {
     bodyParser: false, // Disable the default body parser
   });
 
-  app.use(require('body-parser').json({limit: '50mb'}));
-  app.use(require('body-parser').urlencoded({limit: '50mb', extended: true}));
+  app.use(require('body-parser').json({ limit: '50mb' }));
+  app.use(require('body-parser').urlencoded({ limit: '50mb', extended: true }));
 
   app.enableCors({
-    origin: ['https://portal.guardsos.com','http://localhost:3000'],
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    origin: ['https://portal.guardsos.com', 'http://localhost:3000'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
-
-
   dotenv.config();
 
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-    transformOptions: {
-      enableImplicitConversion: true
-    },
-    disableErrorMessages: false
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      disableErrorMessages: false,
+    }),
+  );
   app.useGlobalInterceptors(new TransformInterceptor());
 
   // Swagger config
@@ -75,7 +75,6 @@ async function bootstrap() {
     return 'localhost';
   };
 
-
   // Log access URLs
   console.log(`Application is running:`);
   console.log(`  ▶ Local:    http://localhost:${PORT}/`);
@@ -83,7 +82,9 @@ async function bootstrap() {
 
   // Suggest EC2 URL if deployed
   if (process.env.EC2_PUBLIC_DNS) {
-    console.log(`  ▶ EC2 URL:  http://${process.env.EC2_PUBLIC_DNS}:${PORT}/api`);
+    console.log(
+      `  ▶ EC2 URL:  http://${process.env.EC2_PUBLIC_DNS}:${PORT}/api`,
+    );
   }
 }
 bootstrap();

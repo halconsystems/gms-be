@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, locationType } from '@prisma/client';
 import { CreateLocationTypeDto } from './dto/create-location-type.dto';
@@ -11,13 +15,15 @@ export class LocationTypeService {
 
   async create(dto: CreateLocationTypeDto) {
     try {
-         const locationType = await this.prisma.locationType.findFirst({ where : { type : dto.type }});
+      const locationType = await this.prisma.locationType.findFirst({
+        where: { type: dto.type },
+      });
 
-         if(locationType) throw new ConflictException("this type already exists");
+      if (locationType) throw new ConflictException('this type already exists');
 
-        return this.prisma.locationType.create({ data : { ...dto }  });
+      return this.prisma.locationType.create({ data: { ...dto } });
     } catch (error) {
-        handlePrismaError(error);
+      handlePrismaError(error);
     }
   }
 
@@ -25,31 +31,35 @@ export class LocationTypeService {
     return this.prisma.locationType.findMany();
   }
 
-  async findOne(id: string){
+  async findOne(id: string) {
     return this.prisma.locationType.findUnique({ where: { id } });
   }
 
-  async update(id: string, data: UpdateLocationTypeDto ) {
+  async update(id: string, data: UpdateLocationTypeDto) {
     try {
-        const locationType = await this.prisma.locationType.findUnique({ where : {id}});
+      const locationType = await this.prisma.locationType.findUnique({
+        where: { id },
+      });
 
-        if(!locationType) throw new NotFoundException("this type doesn't exist");
+      if (!locationType) throw new NotFoundException("this type doesn't exist");
 
-        return this.prisma.locationType.update({ where: { id }, data });
+      return this.prisma.locationType.update({ where: { id }, data });
     } catch (error) {
-        handlePrismaError(error);
+      handlePrismaError(error);
     }
   }
 
   async remove(id: string) {
     try {
-        const locationType = await this.prisma.locationType.findUnique({ where : {id}});
+      const locationType = await this.prisma.locationType.findUnique({
+        where: { id },
+      });
 
-        if(!locationType) throw new NotFoundException("this type doesn't exist");
+      if (!locationType) throw new NotFoundException("this type doesn't exist");
 
-        return this.prisma.locationType.delete({ where: { id } });
+      return this.prisma.locationType.delete({ where: { id } });
     } catch (error) {
-        handlePrismaError
+      handlePrismaError;
     }
   }
 }

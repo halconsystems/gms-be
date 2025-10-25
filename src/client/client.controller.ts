@@ -1,10 +1,16 @@
 import {
-    Controller, Get, Post, Body, Patch, Param, Delete,
-    UseGuards,
-    Req,
-    ConflictException,
-    BadRequestException
-  } from '@nestjs/common';
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/common/guards/jwt-guard';
@@ -15,8 +21,8 @@ import { ClientService } from './client.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
-  
-@ApiTags("Client")
+
+@ApiTags('Client')
 @Controller('clients')
 export class ClientController {
   constructor(private readonly clientService: ClientService) {}
@@ -24,36 +30,50 @@ export class ClientController {
   @Post()
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("organizationAdmin")
+  @Roles('organizationAdmin')
   @ResponseMessage('Client created successfully')
-  async create(@Body() createClientDto: CreateClientDto, @GetOrganizationId() organizationId: string) {
+  async create(
+    @Body() createClientDto: CreateClientDto,
+    @GetOrganizationId() organizationId: string,
+  ) {
     try {
-      const result = await this.clientService.create(createClientDto, organizationId);
-      return { 
-        success: true, 
+      const result = await this.clientService.create(
+        createClientDto,
+        organizationId,
+      );
+      return {
+        success: true,
         data: result,
-        message: 'Client created successfully'
+        message: 'Client created successfully',
       };
     } catch (error) {
       console.error('Error in client creation:', error);
-      
+
       if (error instanceof ConflictException) {
         throw error;
       }
-      
-      if (error.message.includes('Numeric overflow') || error.message.includes('too large')) {
-        throw new BadRequestException('Contract number is too large. Please use a smaller number.');
+
+      if (
+        error.message.includes('Numeric overflow') ||
+        error.message.includes('too large')
+      ) {
+        throw new BadRequestException(
+          'Contract number is too large. Please use a smaller number.',
+        );
       }
 
       // Log detailed error for debugging
       console.error('Detailed error:', JSON.stringify(error, null, 2));
-      
+
       // Handle any Prisma-specific errors
       if (error.code) {
         handlePrismaError(error);
       }
 
-      throw new BadRequestException(error.message || 'Failed to create client. Please check your input and try again.');
+      throw new BadRequestException(
+        error.message ||
+          'Failed to create client. Please check your input and try again.',
+      );
     }
   }
 
@@ -65,7 +85,7 @@ export class ClientController {
   @Get('/by-organization')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("organizationAdmin")
+  @Roles('organizationAdmin')
   @ResponseMessage('Client fetched successfully')
   findAllByOrganizationId(@GetOrganizationId() organizationId: string) {
     return this.clientService.findClientByOrganizationId(organizationId);
@@ -76,11 +96,10 @@ export class ClientController {
     return this.clientService.findOne(id);
   }
 
-
   @Patch(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("organizationAdmin")
+  @Roles('organizationAdmin')
   @ResponseMessage('Client updated successfully')
   update(@Param('id') id: string, @Body() UpdateClientDto: UpdateClientDto) {
     return this.clientService.update(id, UpdateClientDto);
@@ -89,7 +108,7 @@ export class ClientController {
   @Delete(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("organizationAdmin") 
+  @Roles('organizationAdmin')
   @ResponseMessage('Client deleted successfully')
   remove(@Param('id') id: string) {
     return this.clientService.remove(id);

@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config/dist/config.service';
 import { ConfigModule } from '@nestjs/config/dist/config.module';
 
 @Module({
-  imports :[
+  imports: [
     PrismaModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -19,7 +19,7 @@ import { ConfigModule } from '@nestjs/config/dist/config.module';
         secret: config.get<string>('JWT_SECRET_KEY'),
         signOptions: { expiresIn: '1d' },
       }),
-    }),  
+    }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, UserService, RoleService],

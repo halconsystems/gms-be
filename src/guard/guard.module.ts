@@ -9,6 +9,6 @@ import { EmployeeModule } from 'src/employee/employee.module';
   imports: [forwardRef(() => EmployeeModule)],
   providers: [GuardService, PrismaService, FileService],
   controllers: [GuardController],
-  exports: [GuardService]
+  exports: [GuardService],
 })
 export class GuardModule {}

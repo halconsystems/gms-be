@@ -10,42 +10,36 @@ import {
 } from 'class-validator';
 
 export class CreateGuardAllowanceDto {
-  @ApiProperty({
-  })
+  @ApiProperty({})
   @IsUUID()
   guardId: string;
 
-  @ApiProperty({
-  })
+  @ApiProperty({})
   @IsUUID()
   requestedGuardId: string;
 
-   @ApiProperty({  })
+  @ApiProperty({})
   @IsUUID()
   locationPayrollDurationId: string;
 
   @ApiProperty({
-  description: 'Allowance percentage as a fraction (e.g., 0.25 for 25%)',
-  minimum: 0,
-  maximum: 1,
-  example: 0.25,
-})
+    description: 'Allowance percentage as a fraction (e.g., 0.25 for 25%)',
+    minimum: 0,
+    maximum: 1,
+    example: 0.25,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
   allowancePercentage: number;
 
-  @ApiProperty({
-  })
+  @ApiProperty({})
   @IsInt()
   @Min(0)
   holidayCount: number;
 
-  @ApiProperty({
-  })
+  @ApiProperty({})
   @IsInt()
   @Min(0)
   overTimeCount: number;
-
-
 }

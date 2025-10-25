@@ -1,9 +1,17 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Delete,
+} from '@nestjs/common';
 import { LocationTypeService } from './location-type.service';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateLocationTypeDto } from './dto/create-location-type.dto';
 
-@ApiTags("Location Type")
+@ApiTags('Location Type')
 @Controller('location-type')
 export class LocationTypeController {
   constructor(private readonly locationService: LocationTypeService) {}

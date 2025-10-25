@@ -11,7 +11,6 @@ import {
 } from 'class-validator';
 
 export class GuardUploadDto {
-
   @IsNotEmpty()
   @IsString()
   serviceNumber: string;
@@ -38,7 +37,7 @@ export class GuardUploadDto {
   @IsDateString()
   cnicExpiryDate: string;
 
-//   @IsPhoneNumber('PK', { message: 'Invalid Pakistani phone number' })
+  //   @IsPhoneNumber('PK', { message: 'Invalid Pakistani phone number' })
   @IsString()
   contactNumber: string;
 
@@ -51,7 +50,7 @@ export class GuardUploadDto {
   @IsOptional()
   @IsString()
   referenceName: string;
-  
+
   @IsOptional()
   @IsString()
   referenceFatherName: string;

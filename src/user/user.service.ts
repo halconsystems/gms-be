@@ -56,10 +56,10 @@ export class UserService {
       const office = await this.prisma.office.findFirst({
         where: {
           id: data.officeId,
-          organizationId
-        }
+          organizationId,
+        },
       });
-      
+
       if (!office) {
         throw new NotFoundException('Office not found for this organization');
       }
@@ -122,7 +122,9 @@ export class UserService {
       }
 
       // Validate role
-      const role = await this.prisma.role.findUnique({ where: { id: data.roleId } });
+      const role = await this.prisma.role.findUnique({
+        where: { id: data.roleId },
+      });
       if (!role) {
         throw new NotFoundException(`Role '${data.roleId}' not found`);
       }
@@ -143,7 +145,9 @@ export class UserService {
 
       // Ensure employee not already linked to a user
       if (existingEmployee.userId) {
-        throw new ConflictException('This employee is already linked to a user');
+        throw new ConflictException(
+          'This employee is already linked to a user',
+        );
       }
 
       // Hash password
@@ -171,10 +175,10 @@ export class UserService {
         const office = await prisma.office.findFirst({
           where: {
             id: data.officeId,
-            organizationId
-          }
+            organizationId,
+          },
         });
-        
+
         if (!office) {
           throw new NotFoundException('Office not found for this organization');
         }
@@ -291,11 +295,13 @@ export class UserService {
     try {
       // First, validate the organization exists
       const organization = await this.prisma.organization.findUnique({
-        where: { id: organizationId }
+        where: { id: organizationId },
       });
 
       if (!organization) {
-        throw new NotFoundException(`Organization with ID ${organizationId} not found`);
+        throw new NotFoundException(
+          `Organization with ID ${organizationId} not found`,
+        );
       }
 
       // Validate location and client if provided
@@ -304,12 +310,14 @@ export class UserService {
           where: {
             id: dto.locationId,
             clientId: dto.clientId,
-            organizationId
-          }
+            organizationId,
+          },
         });
 
         if (!location) {
-          throw new NotFoundException(`Location with ID ${dto.locationId} not found for client ${dto.clientId}`);
+          throw new NotFoundException(
+            `Location with ID ${dto.locationId} not found for client ${dto.clientId}`,
+          );
         }
       }
 
@@ -320,87 +328,94 @@ export class UserService {
             some: {
               role: {
                 roleName: {
-                  in: [RolesEnum.supervisor, RolesEnum.guardSupervisor]
-                }
-              }
-            }
-          }
+                  in: [RolesEnum.supervisor, RolesEnum.guardSupervisor],
+                },
+              },
+            },
+          },
         },
         include: {
           guard: {
-            where: { 
+            where: {
               organizationId,
-              ...(dto?.locationId && dto?.clientId ? {
-                assignedGuard: {
-                  some: {
-                    location: {
-                      id: dto.locationId,
-                      clientId: dto.clientId
-                    }
+              ...(dto?.locationId && dto?.clientId
+                ? {
+                    assignedGuard: {
+                      some: {
+                        location: {
+                          id: dto.locationId,
+                          clientId: dto.clientId,
+                        },
+                      },
+                    },
                   }
-                }
-              } : {})
+                : {}),
             },
             select: {
               serviceNumber: true,
               fullName: true,
-              id: true
-            }
+              id: true,
+            },
           },
           employee: {
-            where: { 
+            where: {
               organizationId,
-              ...(dto?.locationId && dto?.clientId ? {
-                supervisorFor: {
-                  some: {
-                    locationId: dto.locationId,
-                    clientId: dto.clientId,
-                    deploymentTill: null
+              ...(dto?.locationId && dto?.clientId
+                ? {
+                    supervisorFor: {
+                      some: {
+                        locationId: dto.locationId,
+                        clientId: dto.clientId,
+                        deploymentTill: null,
+                      },
+                    },
                   }
-                }
-              } : {})
+                : {}),
             },
             select: {
               serviceNumber: true,
               fullName: true,
-              id: true
-            }
-          }
-        }
+              id: true,
+            },
+          },
+        },
       });
 
       // Transform the response to handle arrays
       return users
-        .map(user => {
+        .map((user) => {
           const guardInfo = user.guard?.[0];
           const employeeInfo = user.employee?.[0];
           const person = guardInfo || employeeInfo;
-          
+
           if (!person) return null;
 
           return {
             id: user.id,
             serviceNumber: person.serviceNumber,
             fullName: person.fullName,
-            personType: guardInfo ? 'guard' : 'employee'
+            personType: guardInfo ? 'guard' : 'employee',
           };
         })
         .filter(Boolean); // Filter out null values
     } catch (error) {
       // Log the error for debugging
       console.error('Error in getSupervisors:', error);
-      
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      
+
       // Handle Prisma errors
       if (typeof handlePrismaError === 'function') {
         handlePrismaError(error);
       }
-      
+
       throw new InternalServerErrorException('Failed to fetch supervisors', {
-        cause: error
+        cause: error,
       });
     }
   }
@@ -419,7 +434,9 @@ export class UserService {
       }
 
       // Validate role
-      const role = await this.prisma.role.findUnique({ where: { id: data.roleId } });
+      const role = await this.prisma.role.findUnique({
+        where: { id: data.roleId },
+      });
       if (!role) {
         throw new NotFoundException(`Role '${data.roleId}' not found`);
       }
@@ -431,9 +448,9 @@ export class UserService {
           where: {
             organizationId_serviceNumber: {
               organizationId,
-              serviceNumber: data.serviceNumber
-            }
-          }
+              serviceNumber: data.serviceNumber,
+            },
+          },
         });
         if (!person) {
           throw new NotFoundException(
@@ -441,16 +458,18 @@ export class UserService {
           );
         }
         if (person.userId) {
-          throw new ConflictException('This employee is already linked to a user');
+          throw new ConflictException(
+            'This employee is already linked to a user',
+          );
         }
       } else {
         person = await this.prisma.guard.findUnique({
           where: {
             organizationId_serviceNumber: {
               organizationId,
-              serviceNumber: data.serviceNumber
-            }
-          }
+              serviceNumber: data.serviceNumber,
+            },
+          },
         });
         if (!person) {
           throw new NotFoundException(
@@ -487,10 +506,10 @@ export class UserService {
         const office = await prisma.office.findFirst({
           where: {
             id: data.officeId,
-            organizationId
-          }
+            organizationId,
+          },
         });
-        
+
         if (!office) {
           throw new NotFoundException('Office not found for this organization');
         }
@@ -510,11 +529,11 @@ export class UserService {
             data: { userId: user.id },
           });
         } else {
-            updatedPerson = await prisma.guard.update({
+          updatedPerson = await prisma.guard.update({
             where: { id: person.id },
             data: {
-              userId: user.id
-            }
+              userId: user.id,
+            },
           });
         }
 

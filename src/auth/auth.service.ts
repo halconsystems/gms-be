@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -12,18 +17,25 @@ import { RolesEnum } from 'src/common/enums/roles-enum';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService, private jwtService: JwtService, private userService: UserService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+    private userService: UserService,
+  ) {}
 
   /** ---------------- USER SIGNUP ---------------- */
   async signup(dto: SignupDto) {
-    const user = await this.userService.create({
-      email: dto.email,
-      password: dto.password,
-      userName: dto.userName,
-      profileImage: dto.profileImage,
-      roleName: dto.roleName,
-      officeId: dto.officeId
-    }, dto.organizationId);
+    const user = await this.userService.create(
+      {
+        email: dto.email,
+        password: dto.password,
+        userName: dto.userName,
+        profileImage: dto.profileImage,
+        roleName: dto.roleName,
+        officeId: dto.officeId,
+      },
+      dto.organizationId,
+    );
 
     const fullUser = await this.prisma.user.findUnique({
       where: { id: user.id },
@@ -33,9 +45,17 @@ export class AuthService {
     if (!fullUser) throw new NotFoundException('User not found');
 
     const roleName = fullUser.userRoles[0].role.roleName;
-    const organizationId = fullUser.userOffice.length > 0 ? fullUser.userOffice[0].organizationId : null;
+    const organizationId =
+      fullUser.userOffice.length > 0
+        ? fullUser.userOffice[0].organizationId
+        : null;
 
-    const token = this.jwtService.sign({ userId: fullUser.id, email: fullUser.email, roleName, organizationId });
+    const token = this.jwtService.sign({
+      userId: fullUser.id,
+      email: fullUser.email,
+      roleName,
+      organizationId,
+    });
 
     return { user: fullUser, token: token };
   }
@@ -48,37 +68,39 @@ export class AuthService {
       // Find user with roles and direct organization relation first
       const user: FullUserType | null = await this.prisma.user.findUnique({
         where: { email: dto.email },
-        include: fullUserInclude
+        include: fullUserInclude,
       });
 
       if (!user) throw new NotFoundException('User not found');
-      
+
       console.log('Debug user data:', {
         userId: user.id,
-        userRoles: user.userRoles?.map(ur => ur.role?.roleName),
+        userRoles: user.userRoles?.map((ur) => ur.role?.roleName),
         hasDirectOrg: !!user.organizations,
         userOfficeCount: user.userOffice?.length,
-        firstOffice: user.userOffice?.[0] ? {
-          officeId: user.userOffice[0].officeId,
-          orgId: user.userOffice[0].organizationId
-        } : null
+        firstOffice: user.userOffice?.[0]
+          ? {
+              officeId: user.userOffice[0].officeId,
+              orgId: user.userOffice[0].organizationId,
+            }
+          : null,
       });
-      
+
       // Debug logs to trace the issue
-      console.log('User found:', { 
+      console.log('User found:', {
         id: user.id,
         email: user.email,
         userOfficeCount: user.userOffice?.length,
         hasUserOffice: !!user.userOffice?.length,
         firstOfficeOrgId: user.userOffice?.[0]?.organizationId,
-        organization: user.userOffice?.[0]?.organization
+        organization: user.userOffice?.[0]?.organization,
       });
 
       const valid = await bcrypt.compare(dto.password, user.password);
       if (!valid) throw new UnauthorizedException('Invalid credentials');
 
       // Get user's roles
-      const userRoles = user.userRoles?.map(ur => ur.role?.roleName) || [];
+      const userRoles = user.userRoles?.map((ur) => ur.role?.roleName) || [];
       const isSuperAdmin = userRoles.includes(RolesEnum.superAdmin);
       const isOrgAdmin = userRoles.includes(RolesEnum.organizationAdmin);
 
@@ -100,40 +122,42 @@ export class AuthService {
         userRoles,
         fromDirectRelation: user.organizations?.organizationName,
         fromUserOffice: user.userOffice?.[0]?.organization?.organizationName,
-        finalOrgId: organizationId
+        finalOrgId: organizationId,
       });
-      
+
       // Get features from organization
       let features: string[] = [];
       if (organization?.organizationFeatures) {
-        features = organization.organizationFeatures.map(of => of.feature.name);
+        features = organization.organizationFeatures.map(
+          (of) => of.feature.name,
+        );
       }
-      
-      console.log('Features loaded for user:', { 
-        userId: user.id, 
-        features, 
+
+      console.log('Features loaded for user:', {
+        userId: user.id,
+        features,
         isOrgAdmin,
-        orgName: organization?.organizationName 
+        orgName: organization?.organizationName,
       });
 
       const roleName = user.userRoles?.[0]?.role?.roleName ?? 'user';
 
       // Generate JWT token with user info and features
-      const token = this.jwtService.sign({ 
-        userId: user.id, 
-        email: user.email, 
-        roleName, 
+      const token = this.jwtService.sign({
+        userId: user.id,
+        email: user.email,
+        roleName,
         organizationId,
-        features 
+        features,
       });
 
       // Get supervisor info if user has supervisor role
       let supervisorInfo: any = null;
       const isSupervisor = userRoles.includes(RolesEnum.supervisor);
       const firstEmployee = user.employee?.[0];
-      
+
       if (isSupervisor && firstEmployee?.supervisorFor) {
-        const locations = firstEmployee.supervisorFor.map(sup => {
+        const locations = firstEmployee.supervisorFor.map((sup) => {
           const location = sup.location;
           return {
             id: location.id,
@@ -143,48 +167,51 @@ export class AuthService {
             client: {
               id: sup.client.id,
               companyName: sup.client.companyName,
-              contactNumber: sup.client.contactNumber
+              contactNumber: sup.client.contactNumber,
             },
             guards: {
               totalCount: location.assignedGuard.length,
-              list: location.assignedGuard.map(ag => ({
+              list: location.assignedGuard.map((ag) => ({
                 id: ag.id,
                 guardId: ag.guard.id,
                 name: ag.guard.fullName,
                 serviceNumber: ag.guard.serviceNumber,
                 contactNumber: ag.guard.contactNumber,
-                category: ag.guardCategory.categoryName
-              }))
-            }
+                category: ag.guardCategory.categoryName,
+              })),
+            },
           };
         });
 
         supervisorInfo = {
           employeeId: firstEmployee.id,
           serviceNumber: firstEmployee.serviceNumber,
-          locations: locations
+          locations: locations,
         };
       }
 
       // Format login response with defensive null checks
-      return { 
+      return {
         token: token,
-        user: { 
-          id: user.id, 
+        user: {
+          id: user.id,
           userName: user.userName,
-          email: user.email, 
+          email: user.email,
           organizationId,
           organizationName: organization?.organizationName ?? null,
           features,
           roleName,
           isSuperAdmin,
           isSupervisor,
-          supervisorInfo
-        }
+          supervisorInfo,
+        },
       };
     } catch (error) {
       console.error('Login error:', error);
-      if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof UnauthorizedException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Login failed. Please try again.');

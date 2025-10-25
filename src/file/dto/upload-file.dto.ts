@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class FileUploadDto {
-
   @ApiProperty()
   @IsNotEmpty()
   fileName: string;
@@ -13,7 +12,6 @@ export class FileUploadDto {
 }
 
 export class FileGetDto {
-
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
