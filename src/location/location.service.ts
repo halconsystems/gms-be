@@ -117,14 +117,15 @@ export class LocationService {
     const location = await this.prisma.location.findMany({
       where: {
         organizationId: organizationId,
-        assignedGuard: {
-          every: {
-            deploymentTill: null,
-          },
-        },
+        // Include all locations in the organization
+        isActive: true, // Only include active locations
       },
       include: {
         assignedGuard: {
+          where: {
+            // Only include currently deployed guards (no end date)
+            deploymentTill: null,
+          },
           select: {
             deploymentDate: true,
             deploymentTill: true,
@@ -191,19 +192,18 @@ export class LocationService {
     locationId: string,
     organizationId: string,
   ) {
-    const locations = await this.prisma.location.findMany({
+    const location = await this.prisma.location.findUnique({
       where: {
         id: locationId,
-        organizationId: organizationId,
-        assignedGuard: {
-          every: {
-            deploymentTill: null,
-          },
-        },
       },
       select: {
         assignedGuard: {
+          where: {
+            // Only get currently assigned guards (no end date)
+            deploymentTill: null,
+          },
           select: {
+            id: true,
             requestedGuard: {
               select: {
                 Shift: true,
@@ -222,7 +222,7 @@ export class LocationService {
       },
     });
 
-    const assignedGuards = locations[0]?.assignedGuard ?? [];
+    const assignedGuards = location?.assignedGuard ?? [];
 
     const enriched = assignedGuards.map((ag) => {
       const deploymentDate = new Date(ag.deploymentDate);
@@ -389,6 +389,7 @@ export class LocationService {
         },
         select: {
           id: true,
+          createdLocationId: true,
           locationName: true,
           address: true,
           city: true,
@@ -463,6 +464,7 @@ export class LocationService {
           })),
         },
         isActive: location.isActive,
+        createdLocationId: location.createdLocationId || location.id,
       }));
     } catch (error) {
       handlePrismaError(error);

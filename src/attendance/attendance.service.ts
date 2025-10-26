@@ -113,6 +113,7 @@ export class AttendanceService {
           shiftId: dto.shiftId,
           type: dto.type,
           date: parseISO(dto.date),
+          overtime: false, // Initialize overtime as false for new records
         },
       });
 
@@ -369,7 +370,6 @@ export class AttendanceService {
       const totalDays = differenceInCalendarDays(toDate, fromDate);
 
       const guardWhereCondition: any = {
-        officeId: officeId || null,
         organizationId,
         assignedGuard: {
           some: {
@@ -377,6 +377,11 @@ export class AttendanceService {
           },
         },
       };
+
+      // Only add officeId to where condition if it's provided
+      if (officeId) {
+        guardWhereCondition.officeId = officeId;
+      }
 
       if (serviceNumber) {
         guardWhereCondition.serviceNumber = serviceNumber;
@@ -410,6 +415,13 @@ export class AttendanceService {
                 gte: fromDate,
                 lte: toDate,
               },
+            },
+            select: {
+              id: true,
+              type: true,
+              date: true,
+              overtime: true,
+              shiftId: true,
             },
           },
         },

@@ -66,7 +66,7 @@ export class LocationController {
   @Get('/assigned-guard/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
   @ResponseMessage('Guards fetched successfully')
   findAssignedGuardByLocation(
     @Param('locationId') locationId: string,
@@ -108,7 +108,7 @@ export class LocationController {
   @Get('requested-guards/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
   @ResponseMessage('Requested guard fetched successfully')
   getRequestedGuardsByLocation(@Param('locationId') locationId: string) {
     return this.locationService.getRequestedGuardsByLocationId(locationId);

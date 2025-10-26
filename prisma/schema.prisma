@@ -43,11 +43,11 @@ model UserRole {
 }
 
 model Feature {
-  id                   String                 @id @default(uuid()) @db.Uuid
-  name                 String                 @unique
-  description         String?
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
+  id                   String                @id @default(uuid()) @db.Uuid
+  name                 String                @unique
+  description          String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   organizationFeatures OrganizationFeature[]
 }
 
@@ -55,35 +55,35 @@ model OrganizationFeature {
   id             String       @id @default(uuid()) @db.Uuid
   organizationId String       @db.Uuid
   featureId      String       @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   feature        Feature      @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, featureId])
 }
 
 model Organization {
-  id                   String                 @id @default(uuid()) @db.Uuid
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  isActive             Boolean                @default(true)
+  id                   String                    @id @default(uuid()) @db.Uuid
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  isActive             Boolean                   @default(true)
   organizationName     String
-  userId               String                 @unique @db.Uuid
+  userId               String                    @unique @db.Uuid
   organizationLogo     String?
-  province             String
+  addressLine1         String
+  addressLine2         String?
   city                 String
   phoneNumber1         String
   phoneNumber2         String?
-  addressLine1         String
-  addressLine2         String?
-  client              Client[]
-  employee            Employee[]
-  guard               Guard[]
-  guardCategories     GuardCategory[]
-  office              Office[]
+  province             String
+  client               Client[]
+  employee             Employee[]
+  guard                Guard[]
+  guardCategories      GuardCategory[]
+  office               Office[]
+  user                 User                      @relation("UserOrganization", fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount          OrganizationBankAccount[]
   organizationFeatures OrganizationFeature[]
-  user                User                    @relation("UserOrganization", fields: [userId], references: [id], onDelete: Cascade)
-  bankAccount         OrganizationBankAccount[]
-  userOffice          UserOffice[]
+  userOffice           UserOffice[]
 }
 
 model Office {
@@ -196,11 +196,9 @@ model Employee {
 
 model Guard {
   id                         String             @id @default(uuid()) @db.Uuid
-  userId                     String?            @db.Uuid
   organizationId             String             @db.Uuid
   registrationDate           DateTime?          @default(now())
   fullName                   String
-  user                       User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   fatherName                 String?
   dateOfBirth                DateTime?
   cnicNumber                 String             @unique
@@ -234,6 +232,7 @@ model Guard {
   createdAt                  DateTime           @default(now())
   isActive                   Boolean            @default(true)
   updatedAt                  DateTime           @default(now()) @updatedAt
+  userId                     String?            @db.Uuid
   academic                   Academic?
   assignedGuard              AssignedGuard[]
   bankAccount                BankAccount?
@@ -241,6 +240,7 @@ model Guard {
   drivingLicense             DrivingLicense?
   office                     Office?            @relation(fields: [officeId], references: [id], onDelete: Cascade)
   organization               Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                       User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   guardAllowances            GuardAllowances[]
   guardDeductions            GuardDeductions[]
   guardDocuments             GuardDocuments?
@@ -530,20 +530,20 @@ model AssignedGuard {
 }
 
 model AssignedSupervisor {
-  id                  String    @id @default(uuid()) @db.Uuid
-  locationId          String    @db.Uuid
-  employeeId          String    @db.Uuid
+  id                   String    @id @default(uuid()) @db.Uuid
+  locationId           String    @db.Uuid
+  employeeId           String    @db.Uuid
+  clientId             String    @db.Uuid
+  deploymentDate       DateTime
+  deploymentTill       DateTime?
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
   supervisorEmployeeId String    @db.Uuid
-  clientId            String    @db.Uuid
-  deploymentDate      DateTime
-  deploymentTill      DateTime?
-  isActive            Boolean   @default(true)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  client              Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  employee            Employee  @relation("EmployeeAssignedSupervisor", fields: [employeeId], references: [id], onDelete: Cascade)
-  supervisor          Employee  @relation("SupervisorForEmployee", fields: [supervisorEmployeeId], references: [id], onDelete: Cascade)
-  location            Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  client               Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  employee             Employee  @relation("EmployeeAssignedSupervisor", fields: [employeeId], references: [id], onDelete: Cascade)
+  location             Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  supervisor           Employee  @relation("SupervisorForEmployee", fields: [supervisorEmployeeId], references: [id], onDelete: Cascade)
 }
 
 model GuardsAttendance {
@@ -554,7 +554,7 @@ model GuardsAttendance {
   shiftId    String         @db.Uuid
   date       DateTime
   isHoliday  Boolean        @default(false)
-  overtime   Boolean?       @default(false)
+  overtime   Boolean        @default(false)
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   guard      Guard          @relation(fields: [guardId], references: [id], onDelete: Cascade)
