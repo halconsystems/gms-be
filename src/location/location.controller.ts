@@ -28,7 +28,7 @@ export class LocationController {
   @Post()
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Location created successfully')
   create(
     @Body() createLocationDto: CreateLocationDto,
@@ -45,48 +45,57 @@ export class LocationController {
   @Get('/by-organization')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Location fetched successfully')
-  findAllByOrganizationId(@GetOrganizationId() organizationId: string) {
-    return this.locationService.findByOrganizationId(organizationId);
+  findAllByOrganizationId(@GetOrganizationId() organizationId: string, @Req() req) {
+    return this.locationService.findByOrganizationId(organizationId, req.user);
   }
 
   @Get('/by-client/:clientId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Location fetched successfully')
   findAllByClientId(
     @Param('clientId') clientId: string,
     @GetOrganizationId() organizationId: string,
+    @Req() req,
   ) {
-    return this.locationService.findByClientId(clientId, organizationId);
+    return this.locationService.findByClientId(clientId, organizationId, req.user);
   }
 
   @Get('/assigned-guard/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
   @ResponseMessage('Guards fetched successfully')
   findAssignedGuardByLocation(
     @Param('locationId') locationId: string,
     @GetOrganizationId() organizationId: string,
+    @Req() req,
   ) {
     return this.locationService.findAssignedGuardByLocation(
       locationId,
       organizationId,
+      req.user,
     );
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.locationService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req) {
+    // Pass request user when available for office-scoped filtering
+    return this.locationService.findOne(id, req.user);
   }
 
   @Patch(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Location updated successfully')
   update(
     @Param('id') id: string,
@@ -99,7 +108,7 @@ export class LocationController {
   @Delete(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Location deleted successfully')
   remove(@Param('id') id: string) {
     return this.locationService.remove(id);
@@ -108,24 +117,36 @@ export class LocationController {
   @Get('requested-guards/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
   @ResponseMessage('Requested guard fetched successfully')
-  getRequestedGuardsByLocation(@Param('locationId') locationId: string) {
-    return this.locationService.getRequestedGuardsByLocationId(locationId);
+  getRequestedGuardsByLocation(@Param('locationId') locationId: string, @Req() req) {
+    return this.locationService.getRequestedGuardsByLocationId(locationId, req.user);
   }
 
   @Get('by-supervisor/:supervisorEmployeeId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
   @ResponseMessage('Locations fetched successfully')
   findLocationsBySupervisor(
     @Param('supervisorEmployeeId') supervisorEmployeeId: string,
     @GetOrganizationId() organizationId: string,
+    @Req() req,
   ) {
     return this.locationService.findLocationsBySupervisorId(
       supervisorEmployeeId,
       organizationId,
+      req.user,
     );
   }
 }

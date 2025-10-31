@@ -42,7 +42,7 @@ export class EmployeeController {
   @Post()
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   create(
     @Body() createGuardDto: CreateEmployeeDto,
     @GetOrganizationId() organizationId: string,
@@ -53,7 +53,7 @@ export class EmployeeController {
   @Get('/by/serviceNumber')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Employee fetched successfully')
   @ApiOperation({
     summary: 'Get employee by service number',
@@ -78,9 +78,12 @@ export class EmployeeController {
   @Get('/by-organization')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
-  findAllByOrganizationId(@GetOrganizationId() organizationId: string) {
-    return this.employeeService.findEmployeeByOrganizationId(organizationId);
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
+  findAllByOrganizationId(@GetOrganizationId() organizationId: string, @Req() req) {
+    return this.employeeService.findEmployeeByOrganizationId(
+      organizationId,
+      req.user,
+    );
   }
 
   @Get(':id')
@@ -91,7 +94,7 @@ export class EmployeeController {
   @Get('/get/supervisors')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   find(@GetOrganizationId() organizationId: string) {
     return this.employeeService.findAllSupervisors(organizationId);
   }
@@ -99,7 +102,7 @@ export class EmployeeController {
   @Patch(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   update(@Param('id') id: string, @Body() updateGuardDto: UpdateEmployeeDto) {
     return this.employeeService.update(id, updateGuardDto);
   }
@@ -107,7 +110,7 @@ export class EmployeeController {
   @Delete(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   remove(@Param('id') id: string) {
     return this.employeeService.remove(id);
   }
@@ -117,7 +120,7 @@ export class EmployeeController {
   @Get('get-assigned-supervisors/:employeeId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Assigned supervisors fetched successfully')
   getLegacyAssignedSupervisors(
     @Param('employeeId') employeeId: string,
@@ -132,7 +135,7 @@ export class EmployeeController {
   @Get('supervisors/by-service-number/:serviceNumber/any')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Assigned supervisors fetched successfully')
   async getAssignedSupervisorsByServiceNumberAny(
     @Param('serviceNumber', ParseIntPipe) serviceNumber: number,
@@ -282,7 +285,7 @@ export class EmployeeController {
   @Get('by-service-number/:serviceNumber')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Assigned supervisors fetched successfully')
   async getAssignedSupervisorsByServiceNumber(
     @Param('serviceNumber', ParseIntPipe) serviceNumber: number,
@@ -308,7 +311,7 @@ export class EmployeeController {
   @Post('assign-supervisor')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Supervisor assigned successfully')
   assignSupervisor(
     @Body() assignSupervisorDto: AssignSupervisorDto,
@@ -323,7 +326,7 @@ export class EmployeeController {
   @Patch('update-assigned-supervisor/:assignedSupervisorId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Assigned Supervisor updated successfully')
   updateSupervisor(
     @Param('assignedSupervisorId') id: string,

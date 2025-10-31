@@ -35,7 +35,7 @@ export class GuardController {
   @Post('bulk-upload')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Guards uploaded successfully')
   async bulkUpload(
     @GetOrganizationId() organizationId: string,
@@ -58,7 +58,7 @@ export class GuardController {
   @Post()
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Guard created successfully')
   create(
     @Body() createGuardDto: CreateGuardDto,
@@ -75,49 +75,51 @@ export class GuardController {
   @Get('/by-organization')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Guard fetched successfully')
-  findAllByOrganizationId(@GetOrganizationId() organizationId: string) {
-    return this.guardService.findGuardsByOrganizationId(organizationId);
+  findAllByOrganizationId(@GetOrganizationId() organizationId: string, @Req() req) {
+    return this.guardService.findGuardsByOrganizationId(organizationId, req.user);
   }
 
   @Get(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Guard fetched successfully')
   findOne(
     @Param('id') id: string,
     @GetOrganizationId() organizationId: string,
+    @Req() req,
   ) {
-    return this.guardService.findOne(id, organizationId);
+    return this.guardService.findOne(id, organizationId, req.user);
   }
 
   @Get('/by/serviceNumber/')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Guard fetched successfully')
   findByServiceNumber(
     @Query('serviceNumber', ParseIntPipe) serviceNumber: number,
     @GetOrganizationId() organizationId: string,
+    @Req() req,
   ) {
-    return this.guardService.findByServiceNumber(serviceNumber, organizationId);
+    return this.guardService.findByServiceNumber(serviceNumber, organizationId, req.user);
   }
 
   @Patch(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Guard updated successfully')
-  update(@Param('id') id: string, @Body() updateGuardDto: UpdateGuardDto) {
-    return this.guardService.update(id, updateGuardDto);
+  update(@Param('id') id: string, @Body() updateGuardDto: UpdateGuardDto, @Req() req) {
+    return this.guardService.update(id, updateGuardDto, req.user);
   }
 
   @Delete(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard deleted successfully')
   remove(@Param('id') id: string) {
     return this.guardService.remove(id);
@@ -130,7 +132,7 @@ export class GuardController {
   @Post('promote-to-supervisor/:guardId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard promoted to supervisor successfully')
   async promoteGuardToSupervisorLegacy(
     @Param('guardId') guardId: string,
@@ -151,7 +153,7 @@ export class GuardController {
   @Post('promote-to-supervisor')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard promoted to supervisor successfully')
   async promoteGuardToSupervisor(
     @Query('guardId') guardId: string | undefined,
@@ -191,7 +193,7 @@ export class GuardController {
   @Post('assign-guard')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard assigned successfully')
   assignGuardToLocation(
     @Body() dto: AssignGuardDto,
@@ -212,7 +214,7 @@ export class GuardController {
   @Get('assigned-guard')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Assigned Guard fetched successfully')
   getAssignedGuardByGuardId(
     @GetOrganizationId() organizationId: string,
@@ -241,10 +243,10 @@ export class GuardController {
   @Get('with/assigned-locations')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guards fetched successfully')
-  findGuardsWithAssignedLocations(@GetOrganizationId() organizationId: string) {
-    return this.guardService.findGuardsWithAssignedLocations(organizationId);
+  findGuardsWithAssignedLocations(@GetOrganizationId() organizationId: string, @Req() req) {
+    return this.guardService.findGuardsWithAssignedLocations(organizationId, req.user);
   }
   //#endregion
 }

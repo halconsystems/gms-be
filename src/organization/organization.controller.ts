@@ -118,7 +118,8 @@ export class OrganizationController {
   }
 
   @Get('get-offices')
-  @Roles(RolesEnum.organizationAdmin)
+  // Allow organization admins, managers and staff to fetch offices for their organization
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Offices fetched successfully')
   getOffices(@GetOrganizationId() organizationId: string) {
     return this.organizationService.getOffices(organizationId);

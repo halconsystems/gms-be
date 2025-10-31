@@ -55,6 +55,7 @@ export class AuthService {
       email: fullUser.email,
       roleName,
       organizationId,
+      officeId: fullUser.userOffice?.[0]?.officeId,
     });
 
     return { user: fullUser, token: token };
@@ -149,6 +150,7 @@ export class AuthService {
         roleName,
         organizationId,
         features,
+        officeId: user.userOffice?.[0]?.officeId,
       });
 
       // Get supervisor info if user has supervisor role

@@ -4,6 +4,8 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -13,18 +15,23 @@ import { UserService } from 'src/user/user.service';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
 import { RolesEnum } from 'src/common/enums/roles-enum';
+import { shouldFilterByOffice } from 'src/common/utils/office-filter';
 import { NotFoundError } from 'rxjs';
 import { AssignSupervisorDto } from './dto/assign-supervisor.dto';
 import { UpdateAssignSupervisorDto } from './dto/update-assign-supervisor.dto';
 
 @Injectable()
 export class EmployeeService {
+  private readonly logger = new Logger(EmployeeService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly user: UserService,
     @Inject(forwardRef(() => GuardService))
     private readonly guardService: GuardService,
   ) {}
+
+    // Office filtering delegated to shared helper `shouldFilterByOffice`
+
 
   async create(data: CreateEmployeeDto, organizationId: string) {
     try {
@@ -215,7 +222,71 @@ export class EmployeeService {
     });
   }
 
-  findEmployeeByOrganizationId(organizationId: string) {
+  findEmployeeByOrganizationId(organizationId: string, user?: any) {
+    const filter = shouldFilterByOffice(user);
+
+    // Business rule chosen: Managers are restricted to employees that can be
+    // resolved to a `user` with a `userOffice` record matching the manager's
+    // officeId. Employees without a linked `userId` cannot be resolved to an
+    // office and therefore are excluded from manager-scoped listings.
+    //
+    // Organization administrators (role `organizationAdmin`) must still be able
+    // to see all employees, including those without a linked `userId`. To
+    // support that, if the requesting user is an organization admin we return
+    // the unfiltered list for the organization. This keeps managers restricted
+    // while allowing org admins the broader view.
+
+    const role = user?.role;
+    const roleNormalized = typeof role === 'string' ? role : role;
+    if (roleNormalized === RolesEnum.organizationAdmin) {
+      // Organization admins see everything in the organization
+      return this.prisma.employee.findMany({
+        where: { organizationId: organizationId },
+        include: {
+          academic: true,
+          drivingLicense: true,
+          employeeExperience: true,
+          references: true,
+          bankAccount: true,
+          biometric: true,
+        },
+      });
+    }
+
+    // When a manager requests employees, restrict to employees whose linked
+    // user's userOffice contains the manager's officeId. Exclude employees with
+    // no userId because there's no reliable office relation to check.
+    if (filter.shouldFilter) {
+      const where: any = {
+        organizationId: organizationId,
+        // Only include employees that are linked to a user with a userOffice record
+        userId: { not: null },
+        user: {
+          userOffice: {
+            some: {
+              officeId: filter.officeId,
+            },
+          },
+        },
+      };
+
+      return this.prisma.employee.findMany({
+        where,
+        include: {
+          // include user and userOffice temporarily for validation and frontend
+          // needs; can be removed later if not required.
+          user: { include: { userOffice: true } },
+          academic: true,
+          drivingLicense: true,
+          employeeExperience: true,
+          references: true,
+          bankAccount: true,
+          biometric: true,
+        },
+      });
+    }
+
+    // For non-managers (and anonymous requests) return all employees in organization
     return this.prisma.employee.findMany({
       where: { organizationId: organizationId },
       include: {

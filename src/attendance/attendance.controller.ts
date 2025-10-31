@@ -13,6 +13,7 @@ import {
   Query,
   UseGuards,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -45,7 +46,12 @@ export class AttendanceController {
   @Post('/guard')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
   @ResponseMessage('Guard Attendance created successfully')
   @ApiBody({
     type: CreateGuardAttendanceDto,
@@ -63,14 +69,20 @@ export class AttendanceController {
   async create(
     @Body() dtoList: CreateGuardAttendanceDto[],
     @GetOrganizationId() organizationId: string,
+    @Req() req?: any,
   ): Promise<IBatchAttendanceResponse> {
-    return this.attendanceService.create(dtoList, organizationId);
+    return this.attendanceService.create(dtoList, organizationId, req?.user);
   }
 
   @Patch('/guard/:attendanceId/overtime')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
   @ResponseMessage('Overtime flag updated successfully')
   @ApiBody({ type: UpdateOvertimeDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Overtime flag updated successfully' })
@@ -81,18 +93,25 @@ export class AttendanceController {
     @Param('attendanceId', new ParseUUIDPipe()) attendanceId: string,
     @Body() dto: UpdateOvertimeDto,
     @GetOrganizationId() organizationId: string,
+    @Req() req?: any,
   ): Promise<GuardAttendance> {
     return this.attendanceService.updateOvertimeSingle(
       attendanceId,
       dto.overtime,
       organizationId,
+      req?.user,
     );
   }
 
   @Patch('/guard/overtime')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
   @ResponseMessage('Batch overtime update completed')
   @ApiBody({ type: BatchUpdateOvertimeDto, description: 'Array of attendance records to update with overtime flags' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Batch overtime update completed with summary', type: BatchOvertimeUpdateResponseDto })
@@ -100,8 +119,9 @@ export class AttendanceController {
   async updateOvertimeBatch(
     @Body() dto: BatchUpdateOvertimeDto,
     @GetOrganizationId() organizationId: string,
+    @Req() req?: any,
   ): Promise<BatchOvertimeUpdateResponseDto> {
-    return this.attendanceService.updateOvertimeBatch(dto.updates, organizationId);
+    return this.attendanceService.updateOvertimeBatch(dto.updates, organizationId, req?.user);
   }
 
   //  @Patch("/guard/update")
@@ -120,16 +140,26 @@ export class AttendanceController {
   @Get('/guard/all')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
   @ResponseMessage('Guard Attendance fetched successfully')
-  findAll(@GetOrganizationId() organizationId: string) {
-    return this.attendanceService.findAll(organizationId);
+  findAll(@GetOrganizationId() organizationId: string, @Req() req) {
+    return this.attendanceService.findAll(organizationId, req?.user);
   }
 
   @Get('/location/guard/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.supervisor)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
   @ResponseMessage('Guard Attendance fetched successfully')
   @ApiQuery({ name: 'serviceNumber', required: false, type: Number })
   @ApiQuery({ name: 'officeId', required: false, type: Number })
@@ -140,6 +170,7 @@ export class AttendanceController {
     @Query('to') to: Date,
     @Query('serviceNumber') serviceNumber?: number,
     @Query('officeId') officeId?: string,
+    @Req() req?: any,
   ) {
     return this.attendanceService.findGuardAttendanceByLocationId(
       locationId,
@@ -148,6 +179,7 @@ export class AttendanceController {
       to,
       serviceNumber,
       officeId,
+      req?.user,
     );
   }
 
@@ -175,7 +207,7 @@ export class AttendanceController {
   @Delete('/guard/:id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard Attendance deleted successfully')
   remove(@Param('id') id: string) {
     return this.attendanceService.deleteGuardAttendance(id);

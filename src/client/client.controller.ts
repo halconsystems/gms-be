@@ -21,6 +21,7 @@ import { ClientService } from './client.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
+import { RolesEnum } from 'src/common/enums/roles-enum';
 
 @ApiTags('Client')
 @Controller('clients')
@@ -30,7 +31,7 @@ export class ClientController {
   @Post()
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Client created successfully')
   async create(
     @Body() createClientDto: CreateClientDto,
@@ -85,10 +86,13 @@ export class ClientController {
   @Get('/by-organization')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Client fetched successfully')
-  findAllByOrganizationId(@GetOrganizationId() organizationId: string) {
-    return this.clientService.findClientByOrganizationId(organizationId);
+  findAllByOrganizationId(@GetOrganizationId() organizationId: string, @Req() req) {
+    return this.clientService.findClientByOrganizationId(
+      organizationId,
+      req.user,
+    );
   }
 
   @Get(':id')
@@ -99,7 +103,7 @@ export class ClientController {
   @Patch(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Client updated successfully')
   update(@Param('id') id: string, @Body() UpdateClientDto: UpdateClientDto) {
     return this.clientService.update(id, UpdateClientDto);
@@ -108,7 +112,7 @@ export class ClientController {
   @Delete(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('organizationAdmin')
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Client deleted successfully')
   remove(@Param('id') id: string) {
     return this.clientService.remove(id);

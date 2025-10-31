@@ -6,6 +6,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { getSupervisorLocationFilter } from 'src/common/utils/office-filter';
+import { RolesEnum } from 'src/common/enums/roles-enum';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateGuardAttendanceDto } from './dto/create-guard-attendance.dto';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
@@ -98,6 +100,7 @@ export class AttendanceService {
   async createSingle(
     dto: CreateGuardAttendanceDto,
     organizationId: string,
+    user?: any,
   ): Promise<IAttendanceResponse> {
     const validation = await this.validateAttendanceEntry(dto, organizationId);
 
@@ -106,6 +109,17 @@ export class AttendanceService {
     }
 
     try {
+      // Supervisor location-based restriction
+      const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+      if (locationFilter.shouldFilter) {
+        // If supervisor has no assigned locations, they should see no data
+        if (!locationFilter.locationIds || locationFilter.locationIds.length === 0) {
+          return { success: false, error: 'Supervisor has no assigned locations' };
+        }
+        if (!locationFilter.locationIds.includes(dto.locationId)) {
+          return { success: false, error: 'Supervisor can only create attendance for their assigned locations' };
+        }
+      }
       const attendance = await this.prisma.guardsAttendance.create({
         data: {
           guardId: dto.guardId,
@@ -139,6 +153,7 @@ export class AttendanceService {
   async create(
     dtoList: CreateGuardAttendanceDto[],
     organizationId: string,
+    user?: any,
   ): Promise<IBatchAttendanceResponse> {
     const response: IBatchAttendanceResponse = {
       successful: [],
@@ -152,7 +167,7 @@ export class AttendanceService {
     for (let i = 0; i < dtoList.length; i += BATCH_CHUNK_SIZE) {
       const chunk = dtoList.slice(i, i + BATCH_CHUNK_SIZE);
       const results = await Promise.all(
-        chunk.map((dto) => this.createSingle(dto, organizationId)),
+        chunk.map((dto) => this.createSingle(dto, organizationId, user)),
       );
 
       for (const result of results) {
@@ -213,19 +228,28 @@ export class AttendanceService {
     attendanceId: string,
     overtime: boolean,
     organizationId: string,
+    user?: any,
   ): Promise<GuardAttendance> {
     try {
       const existingAttendance = await this.prisma.guardsAttendance.findFirst({
         where: {
           id: attendanceId,
           location: {
-            organizationId,
+            is: { organizationId },
           },
         },
       });
 
       if (!existingAttendance) {
         throw new NotFoundException("Attendance record not found or doesn't belong to the organization");
+      }
+
+      // Supervisor location-based restriction
+      const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+      if (locationFilter.shouldFilter) {
+        if (!locationFilter.locationIds || !locationFilter.locationIds.includes(existingAttendance.locationId)) {
+          throw new ForbiddenException('Supervisor can only update attendance for their assigned locations');
+        }
       }
 
       // Optional enforcement of Present-only overtime based on environment configuration
@@ -257,6 +281,7 @@ export class AttendanceService {
   async updateOvertimeBatch(
     updates: Array<{ attendanceId: string; overtime: boolean }>,
     organizationId: string,
+    user?: any,
   ): Promise<BatchOvertimeUpdateResponseDto> {
     const response: BatchOvertimeUpdateResponseDto = {
       successful: [],
@@ -277,6 +302,7 @@ export class AttendanceService {
                 update.attendanceId,
                 update.overtime,
                 organizationId,
+                user,
               );
               return { success: true as const, data: result };
             } catch (error) {
@@ -330,15 +356,25 @@ export class AttendanceService {
     }
   }
 
-  async findAll(organizationId: string) {
+  async findAll(organizationId: string, user?: any) {
     try {
-      return await this.prisma.guardsAttendance.findMany({
-        where: {
-          location: {
-            organizationId: organizationId,
-          },
-        },
-      });
+      const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+
+      const where: any = {};
+      if (locationFilter.shouldFilter) {
+        if (!locationFilter.locationIds || locationFilter.locationIds.length === 0) {
+          return [];
+        }
+        // Apply both location and organization constraints when supervisor filtering applies
+        where.locationId = { in: locationFilter.locationIds };
+        // Use to-one relation filter syntax
+        where.location = { is: { organizationId } };
+      } else {
+        // Non-supervisor: scope by organization using to-one relation filter
+        where.location = { is: { organizationId: organizationId } };
+      }
+
+      return await this.prisma.guardsAttendance.findMany({ where });
     } catch (error) {
       handlePrismaError(error);
     }
@@ -351,12 +387,21 @@ export class AttendanceService {
     to: Date,
     serviceNumber?: number,
     officeId?: string,
+    user?: any,
   ) {
     try {
-      const location = await this.prisma.location.findUnique({
+      const location = await this.prisma.location.findFirst({
         where: { id: locationId, organizationId: organizationId },
       });
       if (!location) throw new NotFoundException('Location Not Found');
+
+      // Supervisor location-based restriction
+      const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+      if (locationFilter.shouldFilter) {
+        if (!locationFilter.locationIds || !locationFilter.locationIds.includes(locationId)) {
+          throw new ForbiddenException('Supervisor can only view attendance for their assigned locations');
+        }
+      }
 
       // const start = startOfMonth(date);
       // const end = addMonths(start, 1);

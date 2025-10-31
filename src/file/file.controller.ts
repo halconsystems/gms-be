@@ -48,7 +48,7 @@ export class FileController {
   @ApiBearerAuth('jwt')
   @ApiOperation({ summary: 'get S3 bucket download url' })
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   async getDownloadUrl(@Body() body: FileGetDto) {
     const url = await this.fileService.getSecureDownloadUrl(body.key);
     return { url };
@@ -63,7 +63,7 @@ export class FileController {
   @Post('upload/guards')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   // @ResponseMessage('Guard uploaded successfully')
   @UseInterceptors(FileInterceptor('file'))
   async uploadGuards(

@@ -35,7 +35,7 @@ export class PayrollController {
   @Get('/lock/status/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('PayRoll lock fetched successfully')
   geAttendanceLockStatus(
     @Query('startDate') startDate: Date,
@@ -47,7 +47,7 @@ export class PayrollController {
   @Get('/lock/all')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('PayRoll locks fetched successfully')
   getAllAttendanceLocks() {
     return this.payrollService.getAllAttendanceLocks();
@@ -56,7 +56,7 @@ export class PayrollController {
   @Post('/lock/attendance-for-payroll')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('PayRoll locked successfully')
   lockAttendance(
     @GetOrganizationId() organizationId: string,
@@ -68,7 +68,7 @@ export class PayrollController {
   @Patch('/lock/update/:id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('PayRoll lock updated successfully')
   deletlockAttendance(
     @Param('id') id: string,
@@ -80,7 +80,7 @@ export class PayrollController {
   @Delete('/lock/delete/:id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('PayRoll lock deleted successfully')
   deletelockAttendance(@Param('id') id: string) {
     return this.payrollService.deleteAttendanceLock(id);
@@ -89,7 +89,7 @@ export class PayrollController {
   @Get('/allowance/guard/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard fetched successfully')
   @ApiQuery({ name: 'officeId', required: false, type: String })
   @ApiQuery({ name: 'serviceNumber', required: false, type: Number })
@@ -114,7 +114,7 @@ export class PayrollController {
   @Post('/create/guard/allowance')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard allowances created successfully')
   @ApiBody({
     type: CreateGuardAllowanceDto,
@@ -130,7 +130,7 @@ export class PayrollController {
   @Get('/guard-allowance/all')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard allowances fetched successfully')
   getAllGuardAllowance() {
     return this.payrollService.getAllGuardAllowance();
@@ -139,7 +139,7 @@ export class PayrollController {
   @Delete('/delete/guard-allowance/:id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard allowances deleted successfully')
   deleteGuardAllowance(@Param('id') id: string) {
     return this.payrollService.deleteGuardAllowance(id);
@@ -148,7 +148,7 @@ export class PayrollController {
   @Get('/location/gross-salary/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Location Gross Payroll fetched successfully')
   @ApiQuery({ name: 'officeId', required: false, type: String })
   @ApiQuery({ name: 'serviceNumber', required: false, type: Number })
@@ -188,7 +188,7 @@ export class PayrollController {
   @Get('/guard-deductions/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ApiQuery({ name: 'officeId', required: false, type: String })
   @ApiQuery({ name: 'serviceNumber', required: false, type: Number })
   @ResponseMessage('Guards Deductions fetched successfully')
@@ -213,7 +213,7 @@ export class PayrollController {
   @Get('/location/net-payable/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Location Net Payable Payroll fetched successfully')
   @ApiQuery({ name: 'officeId', required: false, type: String })
   @ApiQuery({ name: 'serviceNumber', required: false, type: Number })
@@ -245,7 +245,7 @@ export class PayrollController {
   @Get('/location/transfers/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Transfers fetched successfully')
   @ApiQuery({ name: 'bankId', required: false, type: String })
   locationTransfers(

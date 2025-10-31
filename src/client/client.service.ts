@@ -2,7 +2,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Logger,
+  ForbiddenException,
 } from '@nestjs/common';
+import { shouldFilterByOffice } from 'src/common/utils/office-filter';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -10,7 +13,9 @@ import { UpdateClientDto } from './dto/update-client.dto';
 
 @Injectable()
 export class ClientService {
+  private readonly logger = new Logger(ClientService.name);
   constructor(private readonly prisma: PrismaService) {}
+
 
   async create(data: CreateClientDto, organizationId: string) {
     try {
@@ -173,9 +178,25 @@ export class ClientService {
     };
   }
 
-  async findClientByOrganizationId(organizationId: string) {
+  async findClientByOrganizationId(organizationId: string, user?: any) {
+  const filter = shouldFilterByOffice(user);
+
+    const where: any = { 
+      organizationId: organizationId,
+    };
+
+    // Filter clients by location.officeId for managers
+    if (filter.shouldFilter) {
+      // At this point we know officeId exists because shouldFilterByOffice would have thrown
+      where.location = {
+        some: { 
+          officeId: filter.officeId 
+        }
+      };
+    }
+
     const clients = await this.prisma.client.findMany({
-      where: { organizationId: organizationId },
+      where,
       include: {
         organization: true,
         location: true,

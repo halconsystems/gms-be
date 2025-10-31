@@ -16,7 +16,7 @@ export class PersonsController {
   @Get('search')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ApiOperation({ summary: 'Search persons by service number or name' })
   @ResponseMessage('Persons fetched successfully')
   async searchPersons(

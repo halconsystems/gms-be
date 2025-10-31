@@ -128,6 +128,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
 
       // 6. Return enriched user object
+      // Extract officeId if available; leave undefined for superAdmin or users without an office
+      const officeId = isSuperAdmin
+        ? undefined
+        : validatedUser.userOffice?.[0]?.officeId;
+
       // This becomes available as req.user in your controllers/decorators
       return {
         id: validatedUser.id,
@@ -136,6 +141,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         features, // Empty array if no features
         isSuperAdmin,
         role: validatedUser.userRoles[0]?.role.roleName || 'user',
+        officeId,
         // Add any other needed user fields
       };
     } catch (error) {

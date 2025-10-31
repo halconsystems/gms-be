@@ -4,6 +4,9 @@ import {
   InternalServerErrorException,
   ConflictException,
 } from '@nestjs/common';
+import { RolesEnum } from 'src/common/enums/roles-enum';
+import { ForbiddenException } from '@nestjs/common';
+import { shouldFilterByOffice, getSupervisorLocationFilter } from 'src/common/utils/office-filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
@@ -12,6 +15,15 @@ import { generateRandomNumber } from 'src/common/utils/random-num-generator';
 @Injectable()
 export class LocationService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Determine if we should filter data by office for the given user.
+   * Only managers are restricted to their officeId. If a manager lacks an officeId,
+   * throws ForbiddenException.
+   * @throws {ForbiddenException} When manager has no office assigned
+   * @returns Object indicating if results should be filtered and by which officeId
+   */
+  // Office filtering delegated to shared helper `shouldFilterByOffice`
 
   async create(dto: CreateLocationDto, organizationId: string) {
     try {
@@ -94,17 +106,15 @@ export class LocationService {
     });
   }
 
-  async findOne(id: string) {
-    const location = await this.prisma.location.findUnique({
-      where: { id },
-      include: {
-        requestedGuards: {
-          include: {
-            finances: true,
-          },
-        },
-      },
-    });
+  async findOne(id: string, user?: any) {
+    const filter = shouldFilterByOffice(user);
+    const where: any = { id };
+    if (filter.shouldFilter && filter.officeId) where.officeId = filter.officeId;
+
+    // Use findUnique only when we are querying by id alone (no office filter).
+    const location = filter.shouldFilter && filter.officeId
+      ? await this.prisma.location.findFirst({ where, include: { requestedGuards: { include: { finances: true } } } })
+      : await this.prisma.location.findUnique({ where: { id }, include: { requestedGuards: { include: { finances: true } } } });
 
     if (!location) {
       throw new NotFoundException('Location not found');
@@ -113,13 +123,17 @@ export class LocationService {
     return location;
   }
 
-  async findByOrganizationId(organizationId: string) {
+  async findByOrganizationId(organizationId: string, user?: any) {
+    const filter = shouldFilterByOffice(user);
+    const where: any = {
+      organizationId: organizationId,
+      // Include all locations in the organization
+      isActive: true, // Only include active locations
+    };
+    if (filter.shouldFilter && filter.officeId) where.officeId = filter.officeId;
+
     const location = await this.prisma.location.findMany({
-      where: {
-        organizationId: organizationId,
-        // Include all locations in the organization
-        isActive: true, // Only include active locations
-      },
+      where,
       include: {
         assignedGuard: {
           where: {
@@ -169,12 +183,16 @@ export class LocationService {
     return location;
   }
 
-  async findByClientId(clientId: string, organizationId: string) {
+  async findByClientId(clientId: string, organizationId: string, user?: any) {
+    const filter = shouldFilterByOffice(user);
+    const where: any = {
+      clientId: clientId,
+      organizationId: organizationId,
+    };
+    if (filter.shouldFilter && filter.officeId) where.officeId = filter.officeId;
+
     const location = await this.prisma.location.findMany({
-      where: {
-        clientId: clientId,
-        organizationId: organizationId,
-      },
+      where,
       include: {
         assignedGuard: true,
         requestedGuards: {
@@ -191,11 +209,23 @@ export class LocationService {
   async findAssignedGuardByLocation(
     locationId: string,
     organizationId: string,
+    user?: any,
   ) {
-    const location = await this.prisma.location.findUnique({
-      where: {
-        id: locationId,
-      },
+    const filter = shouldFilterByOffice(user);
+    const whereLoc: any = { id: locationId };
+    if (filter.shouldFilter && filter.officeId) whereLoc.officeId = filter.officeId;
+
+    // Supervisor location-based restriction
+    const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+    if (locationFilter.shouldFilter) {
+      if (!locationFilter.locationIds || !locationFilter.locationIds.includes(locationId)) {
+        throw new ForbiddenException('Supervisor can only view guards at their assigned locations');
+      }
+    }
+
+    // Use findFirst to allow combined filters (id + officeId) without Prisma runtime errors
+    const location = await this.prisma.location.findFirst({
+      where: whereLoc,
       select: {
         assignedGuard: {
           where: {
@@ -354,8 +384,16 @@ export class LocationService {
     }
   }
 
-  async getRequestedGuardsByLocationId(locationId: string) {
+  async getRequestedGuardsByLocationId(locationId: string, user?: any) {
     try {
+      // Supervisor location-based restriction
+      const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+      if (locationFilter.shouldFilter) {
+        if (!locationFilter.locationIds || !locationFilter.locationIds.includes(locationId)) {
+          throw new ForbiddenException('Supervisor can only view requested guards for their assigned locations');
+        }
+      }
+
       return await this.prisma.requestedGuard.findMany({
         where: { locationId: locationId },
         include: {
@@ -375,18 +413,23 @@ export class LocationService {
   async findLocationsBySupervisorId(
     supervisorEmployeeId: string,
     organizationId: string,
+    user?: any,
   ) {
     try {
-      const locations = await this.prisma.location.findMany({
-        where: {
-          organizationId,
-          assignedSupervisor: {
-            some: {
-              supervisorEmployeeId,
-              deploymentTill: null,
-            },
+  const filter = shouldFilterByOffice(user);
+      const where: any = {
+        organizationId,
+        assignedSupervisor: {
+          some: {
+            supervisorEmployeeId,
+            deploymentTill: null,
           },
         },
+      };
+      if (filter.shouldFilter && filter.officeId) where.officeId = filter.officeId;
+
+      const locations = await this.prisma.location.findMany({
+        where,
         select: {
           id: true,
           createdLocationId: true,

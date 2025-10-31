@@ -26,7 +26,7 @@ export class AccountsController {
   @Post('/guard-deduction/create')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   @ResponseMessage('Guard deductions created successfully')
   async createGuardDeduction(@Body() dto: CreateGuardDeductionDto) {
     return await this.accountsService.createGuardDeductions(dto);
@@ -36,7 +36,7 @@ export class AccountsController {
   @ApiOperation({ summary: 'for testing' })
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   async getAllGuardDeductions() {
     return await this.accountsService.getAllGuardDeductions();
   }
@@ -44,7 +44,7 @@ export class AccountsController {
   @Patch('/guard-deduction/:id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   async updateGuardDeductions(
     @Param('id') id: string,
     @Body() dto: UpdateGuardDeductionDto,
@@ -55,7 +55,7 @@ export class AccountsController {
   @Delete('/guard-deduction/:id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
   async deleteGuardDeductions(@Param('id') id: string) {
     return await this.accountsService.deleteGuardDeductions(id);
   }

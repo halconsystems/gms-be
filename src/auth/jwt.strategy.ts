@@ -14,11 +14,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     // Attach user info to request
+    // Extract officeId if present in the token payload (some tokens include userOffice or officeId)
+    const officeId =
+      payload.officeId || (payload.userOffice && payload.userOffice[0]?.officeId);
+
     return {
       userId: payload.userId,
       email: payload.email,
       roleName: payload.roleName,
       organizationId: payload.organizationId || null,
+      officeId: officeId || undefined,
       userRoles: [payload.roleName], // Use the actual role from payload
       features: payload.features || [],
       isSupervisor: payload.roleName === 'supervisor', // Explicitly set supervisor status

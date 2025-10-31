@@ -17,6 +17,7 @@ import { FileService } from 'src/file/file.service';
 import { AssignGuardDto } from './dto/assigned-guard-dto';
 import { EmployeeService } from 'src/employee/employee.service';
 import { RolesEnum } from 'src/common/enums/roles-enum';
+import { shouldFilterByOffice, getSupervisorLocationFilter } from 'src/common/utils/office-filter';
 import { PromoteSupervisorDto } from './dto/promote-supervisor.dto';
 
 @Injectable()
@@ -27,6 +28,11 @@ export class GuardService {
     @Inject(forwardRef(() => EmployeeService))
     private readonly employeeService: EmployeeService,
   ) {}
+
+  // Office filtering delegated to shared helper `shouldFilterByOffice`.
+  // Use shouldFilterByOffice(user, { allowStaff: true }) in this service so
+  // that both managers and staff are restricted to their office when accessing
+  // guard-related endpoints.
 
   /**
    * Resolve or create an Employee record for a Guard
@@ -466,9 +472,10 @@ export class GuardService {
     });
   }
 
-  async findOne(id: string, organizationId: string) {
+  async findOne(id: string, organizationId: string, user?: any) {
+    // First, get the guard by ID only
     const guard = await this.prisma.guard.findUnique({
-      where: { id: id, organizationId: organizationId },
+      where: { id },
       include: {
         academic: true,
         drivingLicense: true,
@@ -480,7 +487,33 @@ export class GuardService {
       },
     });
 
-    if (!guard) return new NotFoundException("Guard doesn't exist");
+    if (!guard) {
+      throw new NotFoundException("Guard doesn't exist");
+    }
+
+    // Then check organization scope
+    if (guard.organizationId !== organizationId) {
+      throw new NotFoundException("Guard doesn't exist");
+    }
+
+    // Finally check office scope for manager/staff
+    const filter = shouldFilterByOffice(user, { allowStaff: true });
+    if (filter.shouldFilter && filter.officeId && guard.officeId !== filter.officeId) {
+      throw new ForbiddenException('You do not have permission to access this guard');
+    }
+
+    // Supervisor location-based restriction: ensure guard is assigned to one of supervisor's locations
+    const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+    if (locationFilter.shouldFilter) {
+      // If supervisor has no assigned locations, deny access immediately
+      if (!locationFilter.locationIds || locationFilter.locationIds.length === 0) {
+        throw new ForbiddenException('You do not have permission to access this guard');
+      }
+      const assigned = await this.prisma.assignedGuard.findFirst({ where: { guardId: guard.id, locationId: { in: locationFilter.locationIds }, deploymentTill: null } });
+      if (!assigned) {
+        throw new ForbiddenException('You do not have permission to access this guard');
+      }
+    }
 
     if (guard.guardDocuments) {
       const documentFields = [
@@ -528,10 +561,23 @@ export class GuardService {
     }
   }
 
-  async findByServiceNumber(serviceNumber: number, organizationId: string) {
+  async findByServiceNumber(serviceNumber: number, organizationId: string, user?: any) {
     try {
+      const filter = shouldFilterByOffice(user, { allowStaff: true });
+      const where: any = { serviceNumber: serviceNumber, organizationId: organizationId };
+      if (filter.shouldFilter && filter.officeId) where.officeId = filter.officeId;
+
+      const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+      if (locationFilter.shouldFilter) {
+        // If supervisor has no assigned locations, treat as not found for single-item lookup
+        if (!locationFilter.locationIds || locationFilter.locationIds.length === 0) {
+          throw new NotFoundException("Guard doesn't exist");
+        }
+        where.assignedGuard = { some: { locationId: { in: locationFilter.locationIds }, deploymentTill: null } };
+      }
+
       const guard = await this.prisma.guard.findFirst({
-        where: { serviceNumber: serviceNumber, organizationId: organizationId },
+        where,
         include: {
           academic: true,
           drivingLicense: true,
@@ -582,12 +628,25 @@ export class GuardService {
     }
   }
 
-  findGuardsByOrganizationId(organizationId: string) {
+  async findGuardsByOrganizationId(organizationId: string, user?: any) {
+    const filter = shouldFilterByOffice(user, { allowStaff: true });
+    const where: any = {
+      organizationId: organizationId,
+      isActive: true,
+    };
+    if (filter.shouldFilter && filter.officeId) where.officeId = filter.officeId;
+
+  const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+  if (locationFilter.shouldFilter) {
+    // If supervisor has no assigned locations, return empty result set for collection endpoints
+    if (!locationFilter.locationIds || locationFilter.locationIds.length === 0) {
+      return [];
+    }
+    where.assignedGuard = { some: { locationId: { in: locationFilter.locationIds }, deploymentTill: null } };
+  }
+
     return this.prisma.guard.findMany({
-      where: {
-        organizationId: organizationId,
-        isActive: true,
-      },
+      where,
       include: {
         academic: true,
         drivingLicense: true,
@@ -623,12 +682,22 @@ export class GuardService {
     });
   }
 
-  findGuardsWithAssignedLocations(organizationId: string) {
+  async findGuardsWithAssignedLocations(organizationId: string, user?: any) {
+  const filter = shouldFilterByOffice(user, { allowStaff: true });
+  const where: any = { organizationId: organizationId, isActive: true };
+  if (filter.shouldFilter && filter.officeId) where.officeId = filter.officeId;
+
+  const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+  if (locationFilter.shouldFilter) {
+    // If supervisor has no assigned locations, return empty result set for collection endpoints
+    if (!locationFilter.locationIds || locationFilter.locationIds.length === 0) {
+      return [];
+    }
+    where.assignedGuard = { some: { locationId: { in: locationFilter.locationIds }, deploymentTill: null } };
+  }
+
     return this.prisma.guard.findMany({
-      where: {
-        organizationId: organizationId,
-        isActive: true,
-      },
+      where,
       select: {
         id: true,
         organizationId: true,
@@ -645,6 +714,7 @@ export class GuardService {
         contactNumber: true,
         currentAddress: true,
         assignedGuard: {
+    where: locationFilter && locationFilter.shouldFilter ? { locationId: { in: locationFilter.locationIds }, deploymentTill: null } : { deploymentTill: null },
           select: {
             requestedGuard: {
               select: {
@@ -669,13 +739,24 @@ export class GuardService {
     });
   }
 
-  async update(id: string, data: UpdateGuardDto) {
+  async update(id: string, data: UpdateGuardDto, user?: any) {
     const guard = await this.prisma.guard.findUnique({
       where: { id },
     });
 
     if (!guard) {
       throw new NotFoundException("guard doesn't exist");
+    }
+
+    // Ensure guard belongs to user's organization
+    if (guard.organizationId !== user.organizationId) {
+      throw new ForbiddenException('You do not have permission to update this guard');
+    }
+
+    // Then check office restrictions for manager/staff
+    const filter = shouldFilterByOffice(user, { allowStaff: true });
+    if (filter.shouldFilter && filter.officeId && guard.officeId !== filter.officeId) {
+      throw new ForbiddenException('You do not have permission to update this guard');
     }
 
     // Destructure nested fields
