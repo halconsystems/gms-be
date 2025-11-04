@@ -507,6 +507,16 @@ export class AttendanceService {
         };
       });
 
+      // Calculate location-wide totals
+      let totalP = 0, totalR = 0, totalL = 0, totalA = 0;
+      result.forEach(guard => {
+        const stats = guard.attendanceStats;
+        totalP += stats.P;
+        totalR += stats.R;
+        totalL += stats.L;
+        totalA += stats.A;
+      });
+
       return {
         dateRange: {
           from: fromDate,
@@ -514,6 +524,12 @@ export class AttendanceService {
           totalDays,
         },
         result,
+        stats: {
+          present: totalP,
+          relieved: totalR,
+          leave: totalL,
+          absent: totalA
+        }
       };
     } catch (error) {
       handlePrismaError(error);

@@ -268,7 +268,12 @@ export class OrganizationService {
 
       return this.prisma.office.findMany({
         where: { organizationId },
-        include: { organization: true },
+        include: {
+          organization: true,
+          _count: {
+            select: { guard: true }
+          }
+        },
       });
     } catch (error) {
       console.error('Error fetching offices:', {

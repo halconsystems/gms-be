@@ -394,7 +394,7 @@ export class LocationService {
         }
       }
 
-      return await this.prisma.requestedGuard.findMany({
+      const requestedGuards = await this.prisma.requestedGuard.findMany({
         where: { locationId: locationId },
         include: {
           guardCategory: {
@@ -405,6 +405,56 @@ export class LocationService {
           },
         },
       });
+
+      // Calculate total requested guards count
+      const totalCount = requestedGuards.reduce((sum, guard) => sum + guard.quantity, 0);
+
+      return { count: totalCount, requestedGuards };
+    } catch (error) {
+      handlePrismaError(error);
+    }
+  }
+
+  /**
+   * Calculates the total number of guards requested across all active locations in the organization.
+   * Respects office and supervisor filtering based on user role.
+   * @param organizationId - The organization ID to calculate totals for
+   * @param user - The user making the request, used for access control
+   * @returns Object containing the total count of requested guards
+   */
+  async getTotalRequestedGuardsByOrganization(organizationId: string, user?: any) {
+    try {
+      const filter = shouldFilterByOffice(user);
+      let where: any = {
+        location: { 
+          organizationId, 
+          isActive: true 
+        }
+      };
+
+      // Apply office filtering if needed
+      if (filter.shouldFilter && filter.officeId) {
+        where.location.officeId = filter.officeId;
+      }
+
+      // Apply supervisor location filtering
+      const locationFilter = await getSupervisorLocationFilter(user, this.prisma);
+      if (locationFilter.shouldFilter) {
+        if (!locationFilter.locationIds?.length) {
+          return { count: 0 }; // Return 0 if supervisor has no assigned locations
+        }
+        where.locationId = { in: locationFilter.locationIds };
+      }
+
+      // Use Prisma aggregate to sum quantities
+      const result = await this.prisma.requestedGuard.aggregate({
+        where,
+        _sum: {
+          quantity: true
+        }
+      });
+
+      return { count: result._sum.quantity || 0 };
     } catch (error) {
       handlePrismaError(error);
     }
