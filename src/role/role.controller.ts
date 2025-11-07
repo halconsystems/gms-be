@@ -37,11 +37,18 @@ export class RoleController {
     return this.roleService.findAll();
   }
 
-  @Get('organization')
-  @Roles(RolesEnum.superAdmin, RolesEnum.organizationAdmin)
-  @ResponseMessage('Roles fetched successfully')
+    @Get('organization')
+  @Roles(RolesEnum.organizationAdmin)
+  @ResponseMessage('Organization roles fetched successfully')
   findForOrganization() {
     return this.roleService.findForOrganization();
+  }
+
+  @Get('all')
+  @Roles(RolesEnum.superAdmin, RolesEnum.organizationAdmin)
+  @ResponseMessage('All roles fetched successfully')
+  findAllRoles() {
+    return this.roleService.findAll();
   }
 
   @Get(':id')

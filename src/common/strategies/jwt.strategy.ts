@@ -12,6 +12,7 @@ interface JwtPayload {
   organizationId?: string; // Organization ID (optional because superAdmin might not have one)
   features?: string[]; // Organization features
   role?: string; // User role
+  clientId?: string; // Client ID for client users
   iat?: number; // Issued at
   exp?: number; // Expiration
 }
@@ -36,6 +37,7 @@ type UserWithRelations = Prisma.UserGetPayload<{
         role: true;
       };
     };
+    client: true;
   };
 }>;
 
@@ -95,6 +97,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
               role: true,
             },
           },
+          client: true,
         },
       });
 
@@ -142,7 +145,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         isSuperAdmin,
         role: validatedUser.userRoles[0]?.role.roleName || 'user',
         officeId,
-        // Add any other needed user fields
+        clientId: validatedUser.client?.id, // Include clientId if user has client association
       };
     } catch (error) {
       // Log unexpected errors but don't expose internals

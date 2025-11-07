@@ -61,6 +61,14 @@ export const fullUserInclude = {
       },
     },
   },
+  client: {
+    select: {
+      id: true,
+      companyName: true,
+      officialEmail: true,
+      contractNumber: true,
+    }
+  },
 } as const;
 
 type FullUserEmployee = {
@@ -160,4 +168,10 @@ export type FullUserType = {
       }>;
     };
   }>;
+  client: {
+    id: string;
+    companyName: string;
+    officialEmail: string;
+    contractNumber: bigint;
+  } | null;
 };

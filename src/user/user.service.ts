@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -34,6 +35,64 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly roleService: RoleService,
   ) {}
+
+  /**
+   * Get client information for a user
+   */
+  async getClientByUserId(userId: string) {
+    try {
+      // Validate UUID format
+      const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!UUID_REGEX.test(userId)) {
+        throw new BadRequestException('Invalid user ID format');
+      }
+
+      // Find user with client relation and roles
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          client: true,
+          userRoles: {
+            include: { role: true }
+          }
+        }
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Verify user has CLIENT role
+      const hasClientRole = user.userRoles.some(ur => ur.role.roleName === RolesEnum.client);
+      if (!hasClientRole) {
+        throw new ForbiddenException('User is not a client');
+      }
+
+      // Check if user has associated client record
+      if (!user.client) {
+        throw new NotFoundException('No client record associated with this user. Please contact administrator.');
+      }
+
+      // Return formatted client data
+      return {
+        clientId: user.client.id,
+        companyName: user.client.companyName,
+        officialEmail: user.client.officialEmail,
+        contractNumber: user.client.contractNumber.toString(),
+        organizationId: user.client.organizationId
+      };
+    } catch (error) {
+      console.error('Error fetching client by user ID:', { userId, error });
+      
+      if (error instanceof BadRequestException || 
+          error instanceof NotFoundException || 
+          error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to fetch client information');
+    }
+  }
 
   /**
    * Create a regular system user
@@ -279,8 +338,170 @@ export class UserService {
   }
 
   /**
-   * Create a user account for an employee or guard using their service number
+   * Create a user account for an employee, guard, or client using their service number or client ID
    */
+  async createServiceNumberUser(
+    data: CreateServiceNumberUserDto,
+    organizationId: string,
+  ) {
+    try {
+      // Check duplicate email
+      const existingEmail = await this.prisma.user.findUnique({
+        where: { email: data.email },
+      });
+      if (existingEmail) {
+        throw new ConflictException('A user with this email already exists');
+      }
+
+      // Validate role
+      const role = await this.prisma.role.findUnique({
+        where: { id: data.roleId },
+      });
+      if (!role) {
+        throw new NotFoundException(`Role '${data.roleId}' not found`);
+      }
+
+      // Find person by service number and type or client by ID
+      let person;
+      if (data.personType === PersonType.CLIENT) {
+        if (!data.clientId) {
+          throw new BadRequestException('Client ID is required for client users');
+        }
+        person = await this.prisma.client.findFirst({
+          where: { 
+            id: data.clientId,
+            organizationId
+          },
+        });
+        if (!person) {
+          throw new NotFoundException(`Client with ID ${data.clientId} not found in this organization`);
+        }
+        if (person.userId) {
+          throw new ConflictException('This client is already linked to a user');
+        }
+      } else {
+        if (!data.serviceNumber) {
+          throw new BadRequestException('Service number is required for employee or guard users');
+        }
+        if (data.personType === PersonType.EMPLOYEE) {
+          person = await this.prisma.employee.findUnique({
+            where: {
+              organizationId_serviceNumber: {
+                organizationId,
+                serviceNumber: data.serviceNumber,
+              },
+            },
+          });
+          if (!person) {
+            throw new NotFoundException(
+              `Employee with service number ${data.serviceNumber} not found in this organization`,
+            );
+          }
+          if (person.userId) {
+            throw new ConflictException(
+              'This employee is already linked to a user',
+            );
+          }
+        } else {
+          person = await this.prisma.guard.findUnique({
+            where: {
+              organizationId_serviceNumber: {
+                organizationId,
+                serviceNumber: data.serviceNumber,
+              },
+            },
+          });
+          if (!person) {
+            throw new NotFoundException(
+              `Guard with service number ${data.serviceNumber} not found in this organization`,
+            );
+          }
+          if (person.userId) {
+            throw new ConflictException('This guard is already linked to a user');
+          }
+        }
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+
+      // Create user + link to role, office, and person (employee, guard, or client)
+      const result = await this.prisma.$transaction(async (prisma) => {
+        const user = await prisma.user.create({
+          data: {
+            email: data.email,
+            password: hashedPassword,
+            userName: data.userName,
+            profileImage: data.profileImage,
+          },
+        });
+
+        await prisma.userRole.create({
+          data: {
+            userId: user.id,
+            roleId: role.id,
+          },
+        });
+
+        // Validate office belongs to organization
+        const office = await prisma.office.findFirst({
+          where: {
+            id: data.officeId,
+            organizationId,
+          },
+        });
+
+        if (!office) {
+          throw new NotFoundException('Office not found for this organization');
+        }
+
+        await prisma.userOffice.create({
+          data: {
+            userId: user.id,
+            organizationId,
+            officeId: data.officeId,
+          },
+        });
+
+        let updatedPerson;
+        if (data.personType === PersonType.CLIENT) {
+          const updateResult = await prisma.client.updateMany({
+            where: { 
+              id: person.id,
+              userId: null
+            },
+            data: { userId: user.id },
+          });
+          
+          if (updateResult.count === 0) {
+            throw new ConflictException('This client is already linked to a user');
+          }
+          
+          updatedPerson = await prisma.client.findUnique({
+            where: { id: person.id }
+          });
+        } else if (data.personType === PersonType.EMPLOYEE) {
+          updatedPerson = await prisma.employee.update({
+            where: { id: person.id },
+            data: { userId: user.id },
+          });
+        } else {
+          updatedPerson = await prisma.guard.update({
+            where: { id: person.id },
+            data: { userId: user.id },
+          });
+        }
+
+        return { user, person: updatedPerson };
+      });
+
+      return result;
+    } catch (error) {
+      handlePrismaError(error);
+      throw new InternalServerErrorException('Failed to create user account', { cause: error });
+    }
+  }
+
   /**
    * Get all users with supervisor roles in the organization
    * @param organizationId The organization ID to filter by
@@ -417,132 +638,6 @@ export class UserService {
       throw new InternalServerErrorException('Failed to fetch supervisors', {
         cause: error,
       });
-    }
-  }
-
-  async createServiceNumberUser(
-    data: CreateServiceNumberUserDto,
-    organizationId: string,
-  ) {
-    try {
-      // Check duplicate email
-      const existingEmail = await this.prisma.user.findUnique({
-        where: { email: data.email },
-      });
-      if (existingEmail) {
-        throw new ConflictException('A user with this email already exists');
-      }
-
-      // Validate role
-      const role = await this.prisma.role.findUnique({
-        where: { id: data.roleId },
-      });
-      if (!role) {
-        throw new NotFoundException(`Role '${data.roleId}' not found`);
-      }
-
-      // Find person by service number and type
-      let person;
-      if (data.personType === PersonType.EMPLOYEE) {
-        person = await this.prisma.employee.findUnique({
-          where: {
-            organizationId_serviceNumber: {
-              organizationId,
-              serviceNumber: data.serviceNumber,
-            },
-          },
-        });
-        if (!person) {
-          throw new NotFoundException(
-            `Employee with service number ${data.serviceNumber} not found in this organization`,
-          );
-        }
-        if (person.userId) {
-          throw new ConflictException(
-            'This employee is already linked to a user',
-          );
-        }
-      } else {
-        person = await this.prisma.guard.findUnique({
-          where: {
-            organizationId_serviceNumber: {
-              organizationId,
-              serviceNumber: data.serviceNumber,
-            },
-          },
-        });
-        if (!person) {
-          throw new NotFoundException(
-            `Guard with service number ${data.serviceNumber} not found in this organization`,
-          );
-        }
-        if (person.userId) {
-          throw new ConflictException('This guard is already linked to a user');
-        }
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(data.password, 10);
-
-      // Create user + link to role, office, and person (employee or guard)
-      const result = await this.prisma.$transaction(async (prisma) => {
-        const user = await prisma.user.create({
-          data: {
-            email: data.email,
-            password: hashedPassword,
-            userName: data.userName,
-            profileImage: data.profileImage,
-          },
-        });
-
-        await prisma.userRole.create({
-          data: {
-            userId: user.id,
-            roleId: role.id,
-          },
-        });
-
-        // Validate office belongs to organization
-        const office = await prisma.office.findFirst({
-          where: {
-            id: data.officeId,
-            organizationId,
-          },
-        });
-
-        if (!office) {
-          throw new NotFoundException('Office not found for this organization');
-        }
-
-        await prisma.userOffice.create({
-          data: {
-            userId: user.id,
-            organizationId,
-            officeId: data.officeId,
-          },
-        });
-
-        let updatedPerson;
-        if (data.personType === PersonType.EMPLOYEE) {
-          updatedPerson = await prisma.employee.update({
-            where: { id: person.id },
-            data: { userId: user.id },
-          });
-        } else {
-          updatedPerson = await prisma.guard.update({
-            where: { id: person.id },
-            data: {
-              userId: user.id,
-            },
-          });
-        }
-
-        return { user, person: updatedPerson };
-      });
-
-      return result;
-    } catch (error) {
-      handlePrismaError(error);
     }
   }
 }

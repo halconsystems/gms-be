@@ -37,12 +37,20 @@ export class AuthService {
       dto.organizationId,
     );
 
-    const fullUser = await this.prisma.user.findUnique({
+    const rawUser = await this.prisma.user.findUnique({
       where: { id: user.id },
-      include: { userRoles: { include: { role: true } }, userOffice: true },
+      include: { userRoles: { include: { role: true } }, userOffice: true, client: true },
     });
 
-    if (!fullUser) throw new NotFoundException('User not found');
+    if (!rawUser) throw new NotFoundException('User not found');
+
+    const fullUser = {
+      ...rawUser,
+      client: rawUser.client ? {
+        ...rawUser.client,
+        contractNumber: BigInt(rawUser.client.contractNumber)
+      } : null
+    };
 
     const roleName = fullUser.userRoles[0].role.roleName;
     const organizationId =
@@ -56,6 +64,7 @@ export class AuthService {
       roleName,
       organizationId,
       officeId: fullUser.userOffice?.[0]?.officeId,
+      clientId: fullUser.client?.id, // Include clientId if user has client association
     });
 
     return { user: fullUser, token: token };
@@ -67,12 +76,21 @@ export class AuthService {
       // Use the predefined type for full user with relations
 
       // Find user with roles and direct organization relation first
-      const user: FullUserType | null = await this.prisma.user.findUnique({
+      const rawUser = await this.prisma.user.findUnique({
         where: { email: dto.email },
         include: fullUserInclude,
       });
 
-      if (!user) throw new NotFoundException('User not found');
+      if (!rawUser) throw new NotFoundException('User not found');
+
+      // Convert contract number to bigint
+      const user: FullUserType = {
+        ...rawUser,
+        client: rawUser.client ? {
+          ...rawUser.client,
+          contractNumber: BigInt(rawUser.client.contractNumber)
+        } : null
+      };
 
       console.log('Debug user data:', {
         userId: user.id,
@@ -151,6 +169,7 @@ export class AuthService {
         organizationId,
         features,
         officeId: user.userOffice?.[0]?.officeId,
+        clientId: user.client?.id, // Include clientId if user has client association
       });
 
       // Get supervisor info if user has supervisor role
@@ -206,6 +225,12 @@ export class AuthService {
           isSuperAdmin,
           isSupervisor,
           supervisorInfo,
+          client: user.client ? {
+            id: user.client.id,
+            companyName: user.client.companyName,
+            officialEmail: user.client.officialEmail,
+            contractNumber: user.client.contractNumber.toString()
+          } : null,
         },
       };
     } catch (error) {

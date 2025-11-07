@@ -7,6 +7,7 @@ import {
   Delete,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -76,6 +77,17 @@ export class UserController {
   @ResponseMessage('Users fetched successfully')
   findAll() {
     return this.userService.findAll();
+  }
+
+  @Get('me/client')
+  @ApiOperation({ summary: 'Get authenticated user\'s client information' })
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.client)
+  @ResponseMessage('Client information fetched successfully')
+  async getMyClient(@Req() req) {
+    const userId = req.user?.userId || req.user?.id || req.user?.sub;
+    return this.userService.getClientByUserId(userId);
   }
 
   @Get('supervisors')

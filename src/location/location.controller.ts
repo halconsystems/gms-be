@@ -114,20 +114,6 @@ export class LocationController {
     return this.locationService.remove(id);
   }
 
-  @Get('total-requested-guards')
-  @ApiBearerAuth('jwt')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(
-    RolesEnum.organizationAdmin,
-    RolesEnum.manager,
-    RolesEnum.supervisor,
-    RolesEnum.guardSupervisor,
-  )
-  @ResponseMessage('Total requested guards fetched successfully')
-  getTotalRequestedGuards(@GetOrganizationId() organizationId: string, @Req() req) {
-    return this.locationService.getTotalRequestedGuardsByOrganization(organizationId, req.user);
-  }
-
   @Get('requested-guards/:locationId')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -140,6 +126,20 @@ export class LocationController {
   @ResponseMessage('Requested guard fetched successfully')
   getRequestedGuardsByLocation(@Param('locationId') locationId: string, @Req() req) {
     return this.locationService.getRequestedGuardsByLocationId(locationId, req.user);
+  }
+
+  @Get('total-requested-guards')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    RolesEnum.organizationAdmin,
+    RolesEnum.manager,
+    RolesEnum.supervisor,
+    RolesEnum.guardSupervisor,
+  )
+  @ResponseMessage('Total requested guards fetched successfully')
+  getTotalRequestedGuards(@GetOrganizationId() organizationId: string, @Req() req) {
+    return this.locationService.getTotalRequestedGuardsByOrganization(organizationId, req.user);
   }
 
   @Get('by-supervisor/:supervisorEmployeeId')
