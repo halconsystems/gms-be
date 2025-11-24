@@ -1,0 +1,774 @@
+openapi: 3.0.0
+info:
+  title: GMS Guard Deployment & Assignment API
+  version: 1.0.0
+  description: Comprehensive API documentation for guard deployment module including guard assignment, supervisor assignment, and location deployment operations
+  contact:
+    name: API Support
+    email: api-support@guardsos.com
+
+servers:
+  - url: http://localhost:5001
+    description: Local Development
+  - url: https://portal.guardsos.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer token required for all endpoints
+
+  schemas:
+    # Request DTOs
+    AssignGuardDto:
+      type: object
+      required:
+        - requestedGuardId
+        - locationId
+        - guardCategoryId
+      properties:
+        requestedGuardId:
+          type: string
+          format: uuid
+          description: UUID of the requested guard slot
+        locationId:
+          type: string
+          format: uuid
+          description: UUID of the location
+        guardCategoryId:
+          type: string
+          format: uuid
+          description: UUID of the guard category
+        guardId:
+          type: string
+          format: uuid
+          description: UUID of the guard (optional if serviceNumber provided)
+          nullable: true
+        serviceNumber:
+          type: integer
+          description: Service number of the guard (optional if guardId provided)
+          nullable: true
+
+    PromoteSupervisorDto:
+      type: object
+      required:
+        - locationId
+        - clientId
+      properties:
+        locationId:
+          type: string
+          format: uuid
+          description: UUID of the location where supervisor operates
+        clientId:
+          type: string
+          format: uuid
+          description: UUID of the client
+        deploymentTill:
+          type: string
+          format: date-time
+          description: Deployment end date
+          nullable: true
+
+    AssignSupervisorDto:
+      type: object
+      required:
+        - locationId
+        - clientId
+      properties:
+        serviceNumber:
+          type: integer
+          description: Service number of the employee (optional if employeeId provided)
+          nullable: true
+        employeeId:
+          type: string
+          format: uuid
+          description: UUID of the employee (optional if serviceNumber provided)
+          nullable: true
+        locationId:
+          type: string
+          format: uuid
+          description: UUID of the location
+        supervisorServiceNumber:
+          type: integer
+          description: Service number of the supervisor (optional if supervisorEmployeeId provided)
+          nullable: true
+        supervisorEmployeeId:
+          type: string
+          format: uuid
+          description: UUID of the supervisor (optional if supervisorServiceNumber provided)
+          nullable: true
+        clientId:
+          type: string
+          format: uuid
+          description: UUID of the client
+        deploymentTill:
+          type: string
+          format: date-time
+          description: Deployment end date
+          nullable: true
+
+    UpdateAssignSupervisorDto:
+      type: object
+      properties:
+        locationId:
+          type: string
+          format: uuid
+          description: UUID of the location
+          nullable: true
+        supervisorServiceNumber:
+          type: integer
+          description: Service number of the new supervisor
+          nullable: true
+        supervisorEmployeeId:
+          type: string
+          format: uuid
+          description: UUID of the new supervisor
+          nullable: true
+        clientId:
+          type: string
+          format: uuid
+          description: UUID of the client
+          nullable: true
+        deploymentTill:
+          type: string
+          format: date-time
+          description: Updated deployment end date
+          nullable: true
+        isActive:
+          type: boolean
+          description: Whether the assignment is active
+          nullable: true
+
+    # Response Models
+    ApiResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, error]
+          description: Response status
+        message:
+          type: string
+          description: Descriptive message
+        data:
+          type: object
+          description: Response data payload
+
+    LocationInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationName:
+          type: string
+        createdLocationId:
+          type: string
+          nullable: true
+
+    ClientInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        contractNumber:
+          type: string
+
+    GuardInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        serviceNumber:
+          type: integer
+        contactNumber:
+          type: string
+          nullable: true
+
+    EmployeeInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        serviceNumber:
+          type: integer
+
+    AssignedGuardResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        guardId:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        requestedGuardId:
+          type: string
+          format: uuid
+        deploymentDate:
+          type: string
+          format: date
+        deploymentTill:
+          type: string
+          format: date
+          nullable: true
+        guardCategoryId:
+          type: string
+          format: uuid
+        totalWorkingDays:
+          type: integer
+          description: Calculated working days from deployment start to end
+        clientName:
+          type: string
+        clientContractNumber:
+          type: string
+        locationName:
+          type: string
+
+    AssignedSupervisorResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        employeeId:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        supervisorEmployeeId:
+          type: string
+          format: uuid
+        deploymentDate:
+          type: string
+          format: date
+        deploymentTill:
+          type: string
+          format: date
+          nullable: true
+        isActive:
+          type: boolean
+        totalWorkingDays:
+          type: integer
+        location:
+          $ref: '#/components/schemas/LocationInfo'
+        client:
+          $ref: '#/components/schemas/ClientInfo'
+        employee:
+          $ref: '#/components/schemas/EmployeeInfo'
+        supervisor:
+          $ref: '#/components/schemas/EmployeeInfo'
+
+    LocationGuardsResponse:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+            format: uuid
+          guard:
+            $ref: '#/components/schemas/GuardInfo'
+          guardCategory:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              categoryName:
+                type: string
+          deploymentDate:
+            type: string
+            format: date
+          deploymentTill:
+            type: string
+            format: date
+            nullable: true
+          totalWorkingDays:
+            type: integer
+          shift:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              shiftName:
+                type: string
+              startTime:
+                type: string
+              endTime:
+                type: string
+
+    RequestedGuardsResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Total number of requested guards
+        requestedGuards:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              quantity:
+                type: integer
+              guardCategory:
+                type: object
+                properties:
+                  categoryName:
+                    type: string
+              shift:
+                type: object
+                properties:
+                  shiftName:
+                    type: string
+
+    SupervisorLocationsResponse:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+            format: uuid
+          locationName:
+            type: string
+          address:
+            type: string
+          client:
+            $ref: '#/components/schemas/ClientInfo'
+          guards:
+            type: object
+            properties:
+              totalCount:
+                type: integer
+              list:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GuardInfo'
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+tags:
+  - name: Guard Assignment
+    description: Operations for assigning guards to locations
+  - name: Supervisor Assignment
+    description: Operations for managing supervisor-employee relationships
+  - name: Location Deployment
+    description: Operations for viewing location deployment status
+
+paths:
+  /guards/assign-guard:
+    post:
+      summary: Assign guard to location
+      tags:
+        - Guard Assignment
+      description: Assigns a guard to a location's requested guard slot. Validates quantity constraints and handles existing deployments. Accepts either guardId or serviceNumber.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignGuardDto'
+      responses:
+        '201':
+          description: Guard successfully assigned
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AssignedGuardResponse'
+        '400':
+          description: Validation error or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Missing or invalid JWT token
+        '403':
+          description: Forbidden - Quantity limit exceeded or deployment constraint violation
+        '404':
+          description: Guard or location not found
+
+  /guards/assigned-guard:
+    get:
+      summary: Get assigned guard details
+      tags:
+        - Guard Assignment
+      description: Retrieves assignment details with calculated totalWorkingDays and flattened client/location info. Requires either guardId or serviceNumber.
+      parameters:
+        - name: guardId
+          in: query
+          description: UUID of the guard (optional if serviceNumber provided)
+          schema:
+            type: string
+            format: uuid
+        - name: serviceNumber
+          in: query
+          description: Service number of the guard (optional if guardId provided)
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Assignment details retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AssignedGuardResponse'
+        '400':
+          description: Missing required parameters
+        '404':
+          description: Guard or assignment not found
+
+  /guards/promote-to-supervisor:
+    post:
+      summary: Promote guard or employee to supervisor
+      tags:
+        - Guard Assignment
+      description: Promotes a person to supervisor role by assigning 'supervisor' role to their user account and creating an AssignedSupervisor record. For guards, automatically resolves/creates Employee record.
+      parameters:
+        - name: guardId
+          in: query
+          description: UUID of the guard
+          schema:
+            type: string
+            format: uuid
+        - name: serviceNumber
+          in: query
+          description: Service number (identifier)
+          schema:
+            type: integer
+        - name: personType
+          in: query
+          description: Type of person being promoted
+          schema:
+            type: string
+            enum: [guard, employee]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoteSupervisorDto'
+      responses:
+        '201':
+          description: Person successfully promoted to supervisor
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          assignedSupervisor:
+                            $ref: '#/components/schemas/AssignedSupervisorResponse'
+                          person:
+                            type: object
+        '400':
+          description: Validation error
+        '404':
+          description: Person, location, or client not found
+
+  /employee/assign-supervisor:
+    post:
+      summary: Assign supervisor to employee at location
+      tags:
+        - Supervisor Assignment
+      description: Creates supervisor-employee relationship at a specific location. Supports both guard and employee service numbers for flexible assignment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignSupervisorDto'
+      responses:
+        '201':
+          description: Supervisor successfully assigned to employee
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AssignedSupervisorResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: Employee, supervisor, location, or client not found
+
+  /employee/get-assigned-supervisors/{employeeId}:
+    get:
+      summary: Get supervisors assigned to employee
+      tags:
+        - Supervisor Assignment
+      description: Returns all active supervisor assignments for the specified employee with location and client details.
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          description: UUID of the employee
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Supervisor assignments retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AssignedSupervisorResponse'
+        '404':
+          description: Employee not found
+
+  /employee/by-service-number/{serviceNumber}:
+    get:
+      summary: Get supervisors by employee service number
+      tags:
+        - Supervisor Assignment
+      description: Retrieves supervisor assignments using employee service number instead of UUID.
+      parameters:
+        - name: serviceNumber
+          in: path
+          required: true
+          description: Service number of the employee
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Supervisor assignments retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AssignedSupervisorResponse'
+        '404':
+          description: Employee not found
+
+  /employee/supervisors/by-service-number/{serviceNumber}/any:
+    get:
+      summary: Flexible supervisor lookup by service number
+      tags:
+        - Supervisor Assignment
+      description: Intelligent lookup that checks if person is a supervisor (returns their assignments) or supervisee (returns their supervisors). Supports both guards and employees.
+      parameters:
+        - name: serviceNumber
+          in: path
+          required: true
+          description: Service number of the person
+          schema:
+            type: integer
+        - name: personType
+          in: query
+          description: Type of person
+          schema:
+            type: string
+            enum: [guard, employee]
+      responses:
+        '200':
+          description: Lookup result retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          oneOf:
+                            - $ref: '#/components/schemas/AssignedSupervisorResponse'
+                            - type: object
+        '404':
+          description: Person not found
+
+  /employee/update-assigned-supervisor/{assignedSupervisorId}:
+    patch:
+      summary: Update supervisor assignment
+      tags:
+        - Supervisor Assignment
+      description: Updates existing supervisor assignment including location, supervisor, client, deployment dates, and active status.
+      parameters:
+        - name: assignedSupervisorId
+          in: path
+          required: true
+          description: UUID of the assignment
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAssignSupervisorDto'
+      responses:
+        '200':
+          description: Assignment successfully updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AssignedSupervisorResponse'
+        '404':
+          description: Assignment not found
+
+  /location/assigned-guard/{locationId}:
+    get:
+      summary: Get guards assigned to location
+      tags:
+        - Location Deployment
+      description: Returns all currently deployed guards at the location with shift details, category, and calculated working days. Respects office and supervisor filtering.
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          description: UUID of the location
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assigned guards retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LocationGuardsResponse'
+        '403':
+          description: Forbidden - Supervisor access denied
+        '404':
+          description: Location not found
+
+  /location/requested-guards/{locationId}:
+    get:
+      summary: Get requested guards for location
+      tags:
+        - Location Deployment
+      description: Returns the guard requirements for a location including quantity, category, and shift information.
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          description: UUID of the location
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Requested guards retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RequestedGuardsResponse'
+        '403':
+          description: Forbidden - Supervisor access denied
+
+  /location/by-supervisor/{supervisorEmployeeId}:
+    get:
+      summary: Get locations managed by supervisor
+      tags:
+        - Location Deployment
+      description: Returns all locations where the specified employee is assigned as supervisor, including guard counts and client details.
+      parameters:
+        - name: supervisorEmployeeId
+          in: path
+          required: true
+          description: UUID of the supervisor employee
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Supervisor locations retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SupervisorLocationsResponse'

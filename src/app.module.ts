@@ -9,23 +9,18 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { GuardCategoryModule } from './guard-category/guard-category.module';
 import { OrganizationModule } from './organization/organization.module';
-import { GuardService } from './guard/guard.service';
 import { GuardModule } from './guard/guard.module';
 import { EmployeeModule } from './employee/employee.module';
 import { ClientModule } from './client/client.module';
 import { LocationModule } from './location/location.module';
 import { ShiftModule } from './shift/shift.module';
 import { FileModule } from './file/file.module';
-import { FileService } from './file/file.service';
 import { LocationTypeModule } from './location-type/location-type.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { BiometricService } from './biometric/biometric.service';
 import { BiometricModule } from './biometric/biometric.module';
 import { PayrollModule } from './payroll/payroll.module';
-import { AccountsService } from './accounts/accounts.service';
-import { AccountsController } from './accounts/accounts.controller';
 import { AccountsModule } from './accounts/accounts.module';
 import { PersonsModule } from './persons/persons.module';
 
@@ -78,10 +73,6 @@ import { PersonsModule } from './persons/persons.module';
       useClass: ThrottlerGuard,
     },
     AppService,
-    FileService,
-    GuardService,
-    BiometricService,
-    AccountsService,
   ],
 })
 export class AppModule {}

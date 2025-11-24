@@ -16,9 +16,9 @@ model User {
   userName      String
   profileImage  String?
   id            String        @id @default(uuid()) @db.Uuid
+  client        Client?
   employee      Employee[]
   guard         Guard[]
-  client        Client?
   organizations Organization? @relation("UserOrganization")
   userOffice    UserOffice[]
   userRoles     UserRole[]    @relation("UserUserRoles")
@@ -392,7 +392,6 @@ model Biometric {
 model Client {
   id                     String               @id @default(uuid()) @db.Uuid
   organizationId         String               @db.Uuid
-  userId                 String?              @unique @db.Uuid
   recruitmentDate        DateTime
   companyName            String
   industry               String
@@ -415,9 +414,10 @@ model Client {
   isActive               Boolean              @default(true)
   contractFile           String?              @default("N/A")
   contractNumber         Int                  @default(autoincrement())
+  userId                 String?              @unique @db.Uuid
   assignedSupervisors    AssignedSupervisor[]
   organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user                   User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                   User?                @relation(fields: [userId], references: [id])
   location               Location[]
 }
 
@@ -557,9 +557,9 @@ model GuardsAttendance {
   shiftId    String         @db.Uuid
   date       DateTime
   isHoliday  Boolean        @default(false)
-  overtime   Boolean        @default(false)
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+  overtime   Boolean        @default(false)
   guard      Guard          @relation(fields: [guardId], references: [id], onDelete: Cascade)
   location   Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
   shift      Shift          @relation(fields: [shiftId], references: [id], onDelete: Cascade)

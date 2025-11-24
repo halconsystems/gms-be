@@ -89,6 +89,58 @@ export class FileService {
     return await getSignedUrl(this.s3, command, { expiresIn: 1240 });
   }
 
+  /**
+   * Upload a buffer (binary data) to S3
+   * @param key S3 object key/path
+   * @param body Buffer containing the file data
+   * @param contentType MIME type (e.g., 'image/png')
+   * @returns Object with key and optional presigned URL
+   */
+  async uploadBufferToS3(
+    key: string,
+    body: Buffer,
+    contentType: string = 'application/octet-stream',
+  ): Promise<{ key: string; url?: string }> {
+    try {
+      const bucketName = process.env.AWS_S3_BUCKET || 'guardsos-bucket-2025';
+      if (!bucketName) {
+        throw new Error('AWS S3 bucket name is not configured');
+      }
+
+      const params: PutObjectCommandInput = {
+        Bucket: bucketName,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      };
+
+      const command = new PutObjectCommand(params);
+      await this.s3.send(command);
+
+      console.log(`Successfully uploaded to S3: ${key}`);
+
+      // Optionally generate presigned URL
+      let presignedUrl: string | undefined;
+      try {
+        presignedUrl = await this.getSecureDownloadUrl(key);
+      } catch (error) {
+        console.warn(`Failed to generate presigned URL for ${key}:`, error);
+      }
+
+      return {
+        key,
+        url: presignedUrl,
+      };
+    } catch (error) {
+      console.error(`Failed to upload buffer to S3 (key: ${key}):`, error);
+      if (error instanceof Error) {
+        throw new Error(`Failed to upload to S3: ${error.message}`);
+      }
+      throw new Error('Failed to upload to S3');
+    }
+  }
+
+
   async parseCSV(buffer: Buffer): Promise<any[]> {
     return new Promise((resolve, reject) => {
       const csvString = buffer.toString();

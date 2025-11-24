@@ -1,0 +1,556 @@
+{
+  "info": {
+    "name": "GMS - Guard Deployment & Assignment Module",
+    "description": "Comprehensive API collection for guard deployment, supervisor assignment, and location management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('bearerToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('organizationId', jsonData.data.organizationId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@guardsos.com\",\n  \"password\": \"SecurePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Obtain JWT Bearer token for authentication. Save token in bearerToken environment variable."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Guard Assignment APIs",
+      "item": [
+        {
+          "name": "Assign Guard to Location",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Response has success status', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.equal('success');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestedGuardId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"locationId\": \"550e8400-e29b-41d4-a716-446655440001\",\n  \"guardCategoryId\": \"550e8400-e29b-41d4-a716-446655440002\",\n  \"guardId\": \"550e8400-e29b-41d4-a716-446655440003\",\n  \"serviceNumber\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/guards/assign-guard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guards",
+                "assign-guard"
+              ]
+            },
+            "description": "Assign a guard to a location's requested guard slot. Accepts either guardId or serviceNumber. Validates quantity constraints."
+          }
+        },
+        {
+          "name": "Get Assigned Guard Details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guards/assigned-guard?guardId=550e8400-e29b-41d4-a716-446655440003",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guards",
+                "assigned-guard"
+              ],
+              "query": [
+                {
+                  "key": "guardId",
+                  "value": "550e8400-e29b-41d4-a716-446655440003",
+                  "description": "UUID of guard (optional if serviceNumber provided)"
+                },
+                {
+                  "key": "serviceNumber",
+                  "value": "G001",
+                  "description": "Service number of guard (optional if guardId provided)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Retrieve assignment details with calculated totalWorkingDays and flattened client/location info. Requires either guardId or serviceNumber."
+          }
+        },
+        {
+          "name": "Promote to Supervisor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locationId\": \"550e8400-e29b-41d4-a716-446655440001\",\n  \"clientId\": \"550e8400-e29b-41d4-a716-446655440004\",\n  \"deploymentTill\": \"2025-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/guards/promote-to-supervisor?serviceNumber=G001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guards",
+                "promote-to-supervisor"
+              ],
+              "query": [
+                {
+                  "key": "guardId",
+                  "value": "550e8400-e29b-41d4-a716-446655440003",
+                  "description": "UUID of guard",
+                  "disabled": true
+                },
+                {
+                  "key": "serviceNumber",
+                  "value": "G001",
+                  "description": "Service number of guard"
+                },
+                {
+                  "key": "personType",
+                  "value": "guard",
+                  "description": "Either 'guard' or 'employee'",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Promote a guard or employee to supervisor role. Assigns supervisor role to user account and creates AssignedSupervisor record."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Supervisor Assignment APIs",
+      "item": [
+        {
+          "name": "Assign Supervisor to Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceNumber\": \"E001\",\n  \"employeeId\": null,\n  \"locationId\": \"550e8400-e29b-41d4-a716-446655440001\",\n  \"supervisorServiceNumber\": \"E002\",\n  \"supervisorEmployeeId\": null,\n  \"clientId\": \"550e8400-e29b-41d4-a716-446655440004\",\n  \"deploymentTill\": \"2025-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employee/assign-supervisor",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee",
+                "assign-supervisor"
+              ]
+            },
+            "description": "Create supervisor-employee relationship at a specific location. Supports both guard and employee service numbers."
+          }
+        },
+        {
+          "name": "Get Assigned Supervisors by Employee ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/employee/get-assigned-supervisors/550e8400-e29b-41d4-a716-446655440005",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee",
+                "get-assigned-supervisors",
+                "550e8400-e29b-41d4-a716-446655440005"
+              ]
+            },
+            "description": "Returns all active supervisor assignments for the specified employee with location and client details."
+          }
+        },
+        {
+          "name": "Get Supervisors by Service Number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/employee/by-service-number/E001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee",
+                "by-service-number",
+                "E001"
+              ]
+            },
+            "description": "Retrieves supervisor assignments using employee service number instead of UUID."
+          }
+        },
+        {
+          "name": "Flexible Supervisor Lookup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/employee/supervisors/by-service-number/E002/any?personType=employee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee",
+                "supervisors",
+                "by-service-number",
+                "E002",
+                "any"
+              ],
+              "query": [
+                {
+                  "key": "personType",
+                  "value": "employee",
+                  "description": "Either 'guard' or 'employee' (optional)"
+                }
+              ]
+            },
+            "description": "Intelligent lookup that checks if person is a supervisor (returns their assignments) or supervisee (returns their supervisors)."
+          }
+        },
+        {
+          "name": "Update Supervisor Assignment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locationId\": \"550e8400-e29b-41d4-a716-446655440001\",\n  \"supervisorServiceNumber\": \"E003\",\n  \"supervisorEmployeeId\": null,\n  \"clientId\": \"550e8400-e29b-41d4-a716-446655440004\",\n  \"deploymentTill\": \"2026-12-31T23:59:59Z\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employee/update-assigned-supervisor/550e8400-e29b-41d4-a716-446655440006",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee",
+                "update-assigned-supervisor",
+                "550e8400-e29b-41d4-a716-446655440006"
+              ]
+            },
+            "description": "Updates existing supervisor assignment including location, supervisor, client, deployment dates, and active status."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Location Deployment APIs",
+      "item": [
+        {
+          "name": "Get Assigned Guards by Location",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/assigned-guard/550e8400-e29b-41d4-a716-446655440001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "location",
+                "assigned-guard",
+                "550e8400-e29b-41d4-a716-446655440001"
+              ]
+            },
+            "description": "Returns all currently deployed guards at the location with shift details, category, and calculated working days. Respects supervisor location filtering."
+          }
+        },
+        {
+          "name": "Get Requested Guards by Location",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/requested-guards/550e8400-e29b-41d4-a716-446655440001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "location",
+                "requested-guards",
+                "550e8400-e29b-41d4-a716-446655440001"
+              ]
+            },
+            "description": "Returns the guard requirements for a location including quantity, category, and shift information."
+          }
+        },
+        {
+          "name": "Get Locations by Supervisor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/by-supervisor/550e8400-e29b-41d4-a716-446655440005",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "location",
+                "by-supervisor",
+                "550e8400-e29b-41d4-a716-446655440005"
+              ]
+            },
+            "description": "Returns all locations where the specified employee is assigned as supervisor, including guard counts and client details."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5001",
+      "type": "string"
+    },
+    {
+      "key": "bearerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "organizationId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
