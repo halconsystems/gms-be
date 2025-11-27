@@ -187,18 +187,63 @@ export class BiometricService {
   /**
    * Check health status of local agent
    * Transforms agent's complex response to frontend's expected format
+   * 
+   * Important: Agent returns HTTP 200 when healthy, HTTP 503 when degraded/unhealthy
+   * We must accept both responses as valid (not treat 503 as error)
    */
   async checkAgentHealth() {
-    this.logger.debug('Checking agent health at ' + this.AGENT_BASE_URL + '/health');
+    this.logger.log('');
+    this.logger.log('█'.repeat(60));
+    this.logger.log('█ HEALTH CHECK START');
+    this.logger.log('█ Target URL: ' + this.AGENT_BASE_URL + '/health');
+    this.logger.log('█ Timeout: 5000ms');
+    this.logger.log('█ Timestamp: ' + new Date().toISOString());
+    this.logger.log('█'.repeat(60));
+    
     try {
+      this.logger.log('> Making HTTP GET request...');
+      
+      // Use validateStatus to accept both 200 and 503 responses from agent
+      // Agent returns:
+      // - 200 + {status: 'healthy', device: {isConnected: true, ...}} when healthy
+      // - 503 + {status: 'degraded', device: {isConnected: false, ...}} when degraded
+      const httpConfig = {
+        timeout: 5000,
+        validateStatus: (status: number) => status === 200 || status === 503,
+      };
+      
+      this.logger.log('HTTP Config: ' + JSON.stringify(httpConfig));
+      
       const response = await firstValueFrom(
-        this.httpService.get(`${this.AGENT_BASE_URL}/health`, {
-          timeout: 5000,
-        }),
+        this.httpService.get(`${this.AGENT_BASE_URL}/health`, httpConfig),
       );
 
+      this.logger.log('✓✓✓ RESPONSE RECEIVED ✓✓✓');
+      
       const agentResponse = (response as any).data;
-      this.logger.debug('Raw agent response: ' + JSON.stringify(agentResponse));
+      const httpStatus = (response as any).status;
+      const headers = (response as any).headers;
+      
+      this.logger.log('HTTP Status Code: ' + httpStatus);
+      this.logger.log('Response Headers: ' + JSON.stringify(headers, null, 2));
+      this.logger.log('Response Content-Type: ' + headers?.['content-type']);
+      this.logger.log('Response Body Type: ' + typeof agentResponse);
+      this.logger.log('Response Body Constructor: ' + agentResponse?.constructor?.name);
+      
+      if (typeof agentResponse === 'object' && agentResponse !== null) {
+        this.logger.log('Response Keys: ' + Object.keys(agentResponse).join(', '));
+      }
+      
+      this.logger.log('Full Response Body: ');
+      this.logger.log(JSON.stringify(agentResponse, null, 2));
+      
+      // Extract device info with detailed logging
+      this.logger.log('');
+      this.logger.log('EXTRACTING DEVICE INFO:');
+      this.logger.log('  agentResponse.status: ' + agentResponse?.status + ' (type: ' + typeof agentResponse?.status + ')');
+      this.logger.log('  agentResponse.device: ' + JSON.stringify(agentResponse?.device));
+      this.logger.log('  agentResponse.device?.isConnected: ' + agentResponse?.device?.isConnected + ' (type: ' + typeof agentResponse?.device?.isConnected + ')');
+      this.logger.log('  agentResponse.device?.count: ' + agentResponse?.device?.count + ' (type: ' + typeof agentResponse?.device?.count + ')');
       
       // Transform agent's comprehensive response to frontend's expected format
       // Agent returns: {status, agent, sdk, device: {isConnected, count, ...}, memory, diagnostics, ...}
@@ -212,22 +257,68 @@ export class BiometricService {
         },
       };
       
-      this.logger.debug('Transformed response: ' + JSON.stringify(transformedResponse));
+      this.logger.log('');
+      this.logger.log('TRANSFORMED RESPONSE:');
+      this.logger.log(JSON.stringify(transformedResponse, null, 2));
+      this.logger.log('');
+      this.logger.log('█ HEALTH CHECK SUCCESS');
+      this.logger.log('█'.repeat(60));
+      this.logger.log('');
       
       // Return transformed data - TransformInterceptor will wrap it with {status: 'success', message: '...', data: ...}
       return transformedResponse;
     } catch (error) {
-      this.logger.error('Agent health check error details: ' + JSON.stringify({
+      this.logger.log('');
+      this.logger.log('█'.repeat(60));
+      this.logger.log('█ HEALTH CHECK ERROR');
+      this.logger.log('█'.repeat(60));
+      this.logger.error('Error type: ' + error?.constructor?.name);
+      this.logger.error('Error code: ' + (error as any).code);
+      this.logger.error('Error message: ' + (error as any).message);
+      this.logger.error('Error stack (first 500 chars): ' + String((error as any).stack).substring(0, 500));
+      
+      const axiosError = error as any;
+      if (axiosError.response) {
+        this.logger.error('Has response object: YES');
+        this.logger.error('  response.status: ' + axiosError.response?.status);
+        this.logger.error('  response.statusText: ' + axiosError.response?.statusText);
+        this.logger.error('  response.headers: ' + JSON.stringify(axiosError.response?.headers));
+        this.logger.error('  response.data: ' + JSON.stringify(axiosError.response?.data));
+      } else {
+        this.logger.error('Has response object: NO (network error)');
+      }
+      
+      this.logger.error('Error details: ' + JSON.stringify({
         code: (error as any).code,
         message: (error as any).message,
-        response: (error as any).response?.data
+        errno: (error as any).errno,
+        syscall: (error as any).syscall,
+        hostname: (error as any).hostname,
+        port: (error as any).port,
       }));
       
       if ((error as any).code === 'ECONNREFUSED') {
-        this.logger.error('Agent is not running on localhost:8765 - ensure the agent service is started');
+        this.logger.error('⚠⚠⚠ CONNECTION REFUSED ⚠⚠⚠');
+        this.logger.error('Agent is not running on localhost:8765');
+        this.logger.error('Hostname: ' + (error as any).hostname);
+        this.logger.error('Port: ' + (error as any).port);
       }
       
-      this.logger.warn('Returning unhealthy status due to agent error');
+      if ((error as any).code === 'ETIMEDOUT') {
+        this.logger.error('⚠⚠⚠ CONNECTION TIMEOUT ⚠⚠⚠');
+        this.logger.error('Socket timed out - agent took longer than 5000ms to respond');
+      }
+      
+      if ((error as any).code === 'ECONNABORTED') {
+        this.logger.error('⚠⚠⚠ REQUEST ABORTED ⚠⚠⚠');
+        this.logger.error('Request was aborted - agent not responding');
+      }
+      
+      this.logger.log('');
+      this.logger.log('█ Returning unhealthy status due to error');
+      this.logger.log('█'.repeat(60));
+      this.logger.log('');
+      
       // Return unhealthy status in frontend's expected format
       return {
         status: 'unhealthy',
