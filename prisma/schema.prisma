@@ -22,6 +22,18 @@ model User {
   organizations Organization? @relation("UserOrganization")
   userOffice    UserOffice[]
   userRoles     UserRole[]    @relation("UserUserRoles")
+  
+  // Inventory Relations
+  purchaseRequests          PurchaseRequest[]     @relation("PurchaseRequestRequester")
+  purchaseRequestsApproved  PurchaseRequest[]     @relation("PurchaseRequestApprover")
+  purchaseOrders            PurchaseOrder[]
+  grnsReceivedBy            Grn[]                 @relation("GrnReceivedBy")
+  grnsInspectedBy           Grn[]                 @relation("GrnInspectedBy")
+  stockTransfersInitiated   StockTransfer[]       @relation("StockTransferInitiator")
+  stockTransfersReceived    StockTransfer[]       @relation("StockTransferReceiver")
+  issuances                 IssuanceRegister[]
+  returns                   ReturnRegister[]
+  stockMovements            StockMovement[]
 }
 
 model Role {
@@ -85,6 +97,22 @@ model Organization {
   bankAccount          OrganizationBankAccount[]
   organizationFeatures OrganizationFeature[]
   userOffice           UserOffice[]
+  
+  // Inventory Relations
+  stores                    Store[]               @relation("OrganizationStores")
+  itemCategories            ItemCategory[]        @relation("OrganizationItemCategories")
+  itemGroups                ItemGroup[]           @relation("OrganizationItemGroups")
+  vendors                   Vendor[]              @relation("OrganizationVendors")
+  items                     Item[]                @relation("OrganizationItems")
+  inventory                 Inventory[]           @relation("OrganizationInventory")
+  purchaseRequests          PurchaseRequest[]     @relation("OrganizationPurchaseRequests")
+  purchaseOrders            PurchaseOrder[]       @relation("OrganizationPurchaseOrders")
+  grns                      Grn[]                 @relation("OrganizationGrns")
+  stockTransfers            StockTransfer[]       @relation("OrganizationStockTransfers")
+  inventoryCards            InventoryCard[]       @relation("OrganizationInventoryCards")
+  issuances                 IssuanceRegister[]    @relation("OrganizationIssuances")
+  returns                   ReturnRegister[]      @relation("OrganizationReturns")
+  stockMovements            StockMovement[]       @relation("OrganizationStockMovements")
 }
 
 model Office {
@@ -106,6 +134,9 @@ model Office {
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userOffice       UserOffice[]
   location         Location[]
+  
+  // Inventory Relations
+  stores           Store[]        @relation("OfficeStores")
 }
 
 model OrganizationBankAccount {
@@ -248,6 +279,11 @@ model Guard {
   guardExperience            GuardExperience[]
   guardsAttendance           GuardsAttendance[]
   references                 Reference[]
+  
+  // Inventory Relations
+  inventoryCards            InventoryCard[]
+  issuances                 IssuanceRegister[]
+  returns                   ReturnRegister[]
 
   @@unique([organizationId, serviceNumber], map: "unique_guard_org_service")
 }
@@ -608,6 +644,574 @@ model GuardDeductions {
   location      Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
 }
 
+// ------------------------------------------
+// INVENTORY MANAGEMENT MODULE
+// ------------------------------------------
+
+// ------------------------------------------
+// 1. SETUP MODULE (Configuration/Dropdowns)
+// ------------------------------------------
+
+model Store {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  officeId       String    @db.Uuid
+  name           String    // e.g. "Main Store", "Port Qasim"
+  location       String?
+  address        String?
+  phone          String?
+  email          String?
+  manager        String?
+  capacity       Int?
+  
+  organization   Organization @relation("OrganizationStores", fields: [organizationId], references: [id], onDelete: Cascade)
+  office         Office    @relation("OfficeStores", fields: [officeId], references: [id], onDelete: Cascade)
+  
+  inventory           Inventory[]
+  purchaseRequests    PurchaseRequest[]
+  purchaseOrders      PurchaseOrder[]
+  grns                Grn[]
+  stockMovements      StockMovement[]
+  stockTransfersFrom  StockTransfer[] @relation("TransferFromStore")
+  stockTransfersTo    StockTransfer[] @relation("TransferToStore")
+  inventoryCards      InventoryCard[] @relation("StoreInventoryCards")
+  issuances           IssuanceRegister[] @relation("StoreIssuances")
+  returns             ReturnRegister[] @relation("StoreReturns")
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isActive       Boolean   @default(true)
+  
+  @@unique([organizationId, name])
+}
+
+model ItemCategory {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String    // e.g. "New", "Used", "Brought Forward"
+  description    String?
+  
+  organization   Organization @relation("OrganizationItemCategories", fields: [organizationId], references: [id], onDelete: Cascade)
+  groups         ItemGroup[] @relation("ItemCategoryGroups")
+  items          Item[] @relation("ItemCategoryItems")
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isActive       Boolean   @default(true)
+  
+  @@unique([organizationId, name])
+}
+
+model ItemGroup {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String    // e.g. "Uniform", "Electronics", "KIT"
+  description    String?
+  categoryId     String?   @db.Uuid
+  
+  organization   Organization @relation("OrganizationItemGroups", fields: [organizationId], references: [id], onDelete: Cascade)
+  category       ItemCategory? @relation("ItemCategoryGroups", fields: [categoryId], references: [id], onDelete: SetNull)
+  items          Item[] @relation("ItemGroupItems")
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isActive       Boolean   @default(true)
+  
+  @@unique([organizationId, name])
+}
+
+model Vendor {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String    // Business name
+  contactPerson  String?
+  email          String?
+  phone          String
+  phoneSecondary String?
+  address        String?
+  city           String?
+  country        String?
+  paymentTerms   String?
+  rating         Decimal?  @db.Decimal(3, 2)
+  
+  organization   Organization @relation("OrganizationVendors", fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+  grns           Grn[]
+  preferredItems Item[]
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isActive       Boolean   @default(true)
+  
+  @@unique([organizationId, name])
+}
+
+// ------------------------------------------
+// 2. ITEM MASTER (Cataloging)
+// ------------------------------------------
+
+model Item {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @db.Uuid
+  
+  name             String    // Item name
+  sku              String    // Stock Keeping Unit (unique per org)
+  barcode          String?   @unique
+  description      String?
+  
+  categoryId       String    @db.Uuid
+  category         ItemCategory @relation("ItemCategoryItems", fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  groupId          String    @db.Uuid
+  group            ItemGroup @relation("ItemGroupItems", fields: [groupId], references: [id], onDelete: Cascade)
+  
+  unitOfMeasurement String   // e.g. "Pieces", "Kg", "Liter", "Box", "Pack"
+  imagePath        String?   // S3 URL
+  
+  // Stock thresholds for auto-ordering
+  reorderLevel     Int?
+  reorderQuantity  Int?
+  minStockLevel    Int?
+  maxStockLevel    Int?
+  
+  // Opening balance (if registering existing asset)
+  initialPrice     Decimal?  @db.Decimal(10, 2)
+  initialPurchaseDate DateTime?
+  
+  // Item lifecycle
+  expiryDays       Int?
+  servicePeriod    Int?
+  
+  preferredVendorId String? @db.Uuid
+  preferredVendor   Vendor? @relation(fields: [preferredVendorId], references: [id], onDelete: SetNull)
+  
+  organization     Organization @relation("OrganizationItems", fields: [organizationId], references: [id], onDelete: Cascade)
+  inventory        Inventory[]
+  prItems          PurchaseRequestItem[]
+  poItems          PurchaseOrderItem[]
+  grnItems         GrnItem[]
+  movements        StockMovement[]
+  inventoryCardItems InventoryCardItem[]
+  issuanceItems    IssuanceItem[]
+  returnItems      ReturnItem[]
+  stockTransferItems StockTransferItem[]
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  isActive         Boolean   @default(true)
+  
+  @@unique([organizationId, sku])
+}
+
+// ------------------------------------------
+// 3. LIVE INVENTORY STOCK
+// ------------------------------------------
+
+model Inventory {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  storeId           String    @db.Uuid
+  itemId            String    @db.Uuid
+  
+  quantityOnHand    Int       @default(0)   // Current stock
+  quantityReserved  Int       @default(0)   // Reserved for orders
+  quantityAvailable Int       @default(0)   // Available = OnHand - Reserved
+  
+  lastCountedDate   DateTime?
+  minStockLevel     Int?
+  maxStockLevel     Int?
+  
+  store             Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  organization      Organization @relation("OrganizationInventory", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  updatedAt         DateTime  @updatedAt
+  
+  @@unique([storeId, itemId])
+}
+
+// ------------------------------------------
+// 4. PURCHASE REQUEST (PR)
+// ------------------------------------------
+
+model PurchaseRequest {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  
+  prNumber          String    @unique  // e.g. "PR-2024-001"
+  storeId           String    @db.Uuid
+  requestedBy       String    @db.Uuid
+  
+  requestDate       DateTime  @default(now())
+  requiredDate      DateTime?
+  
+  status            PRStatus  @default(DRAFT)
+  totalAmount       Decimal?  @db.Decimal(12, 2)
+  notes             String?
+  
+  approvedBy        String?   @db.Uuid
+  approvalDate      DateTime?
+  
+  store             Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  requester         User      @relation("PurchaseRequestRequester", fields: [requestedBy], references: [id], onDelete: Cascade)
+  approver          User?     @relation("PurchaseRequestApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  organization      Organization @relation("OrganizationPurchaseRequests", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  items             PurchaseRequestItem[]
+  purchaseOrders    PurchaseOrder[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model PurchaseRequestItem {
+  id                String    @id @default(uuid()) @db.Uuid
+  prId              String    @db.Uuid
+  itemId            String    @db.Uuid
+  
+  quantity          Int
+  unitPrice         Decimal?  @db.Decimal(10, 2)
+  totalPrice        Decimal?  @db.Decimal(12, 2)
+  notes             String?
+  
+  pr                PurchaseRequest @relation(fields: [prId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------
+// 5. PURCHASE ORDER (PO)
+// ------------------------------------------
+
+model PurchaseOrder {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  
+  poNumber          String    @unique  // e.g. "PO-2024-001"
+  
+  prId              String?   @db.Uuid
+  purchaseRequest   PurchaseRequest? @relation(fields: [prId], references: [id], onDelete: SetNull)
+  
+  vendorId          String    @db.Uuid
+  storeId           String    @db.Uuid
+  orderedBy         String    @db.Uuid
+  
+  orderDate         DateTime  @default(now())
+  expectedDeliveryDate DateTime?
+  deliveryDate      DateTime?
+  
+  status            POStatus  @default(DRAFT)
+  paymentStatus     PaymentStatus @default(PENDING)
+  
+  totalAmount       Decimal?  @db.Decimal(12, 2)
+  taxAmount         Decimal?  @db.Decimal(10, 2)
+  shippingCost      Decimal?  @db.Decimal(10, 2)
+  discountAmount    Decimal?  @db.Decimal(10, 2)
+  netAmount         Decimal?  @db.Decimal(12, 2)
+  
+  notes             String?
+  
+  vendor            Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  store             Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  creator           User      @relation(fields: [orderedBy], references: [id], onDelete: Cascade)
+  organization      Organization @relation("OrganizationPurchaseOrders", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  items             PurchaseOrderItem[]
+  grns              Grn[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model PurchaseOrderItem {
+  id                String    @id @default(uuid()) @db.Uuid
+  poId              String    @db.Uuid
+  itemId            String    @db.Uuid
+  
+  quantityOrdered   Int
+  quantityReceived  Int       @default(0)
+  unitPrice         Decimal   @db.Decimal(10, 2)
+  totalPrice        Decimal   @db.Decimal(12, 2)
+  notes             String?
+  
+  po                PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  grnItems          GrnItem[]
+}
+
+// ------------------------------------------
+// 6. GOODS RECEIPT NOTE (GRN)
+// ------------------------------------------
+
+model Grn {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  
+  grnNumber         String    @unique  // e.g. "GRN-2024-001"
+  poId              String    @db.Uuid
+  storeId           String    @db.Uuid
+  vendorId          String    @db.Uuid
+  
+  grnType           GRNType   @default(PURCHASE)
+  
+  receivedBy        String    @db.Uuid
+  receivedDate      DateTime  @default(now())
+  
+  inspectedBy       String?   @db.Uuid
+  inspectionDate    DateTime?
+  
+  status            GRNStatus @default(PENDING)
+  totalQuantity     Int?
+  totalAmount       Decimal?  @db.Decimal(12, 2)
+  notes             String?
+  
+  purchaseOrder     PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  store             Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  vendor            Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  receiver          User      @relation("GrnReceivedBy", fields: [receivedBy], references: [id], onDelete: Cascade)
+  inspector         User?     @relation("GrnInspectedBy", fields: [inspectedBy], references: [id], onDelete: SetNull)
+  organization      Organization @relation("OrganizationGrns", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  items             GrnItem[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model GrnItem {
+  id                String    @id @default(uuid()) @db.Uuid
+  grnId             String    @db.Uuid
+  itemId            String    @db.Uuid
+  poItemId          String?   @db.Uuid
+  
+  quantityOrdered   Int?
+  quantityReceived  Int
+  quantityAccepted  Int       @default(0)
+  quantityRejected  Int       @default(0)
+  
+  unitPrice         Decimal?  @db.Decimal(10, 2)
+  totalPrice        Decimal?  @db.Decimal(12, 2)
+  
+  conditionStatus   ConditionStatus @default(GOOD)
+  batchNumber       String?
+  expiryDate        DateTime?
+  serialNumber      String?
+  notes             String?
+  
+  grn               Grn       @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  poItem            PurchaseOrderItem? @relation(fields: [poItemId], references: [id], onDelete: SetNull)
+}
+
+// ------------------------------------------
+// 7. STOCK TRANSFERS (Between Stores)
+// ------------------------------------------
+
+model StockTransfer {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  
+  transferNumber    String    @unique
+  fromStoreId       String    @db.Uuid
+  toStoreId         String    @db.Uuid
+  
+  transferDate      DateTime  @default(now())
+  receivedDate      DateTime?
+  
+  initiatedBy       String    @db.Uuid
+  receivedBy        String?   @db.Uuid
+  
+  status            TransferStatus @default(DRAFT)
+  notes             String?
+  
+  fromStore         Store     @relation("TransferFromStore", fields: [fromStoreId], references: [id], onDelete: Cascade)
+  toStore           Store     @relation("TransferToStore", fields: [toStoreId], references: [id], onDelete: Cascade)
+  initiator         User      @relation("StockTransferInitiator", fields: [initiatedBy], references: [id], onDelete: Cascade)
+  receiver          User?     @relation("StockTransferReceiver", fields: [receivedBy], references: [id], onDelete: SetNull)
+  organization      Organization @relation("OrganizationStockTransfers", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  items             StockTransferItem[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model StockTransferItem {
+  id                String    @id @default(uuid()) @db.Uuid
+  transferId        String    @db.Uuid
+  itemId            String    @db.Uuid
+  
+  quantityTransferred Int
+  quantityReceived  Int       @default(0)
+  notes             String?
+  
+  transfer          StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------
+// 8. INVENTORY CARDS & ISSUANCE
+// ------------------------------------------
+
+model InventoryCard {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  
+  cardNumber        String    @unique
+  guardId           String?   @db.Uuid
+  storeId           String    @db.Uuid
+  
+  issuanceDate      DateTime  @default(now())
+  returnDate        DateTime?
+  
+  status            CardStatus @default(ACTIVE)
+  notes             String?
+  
+  guard             Guard?    @relation(fields: [guardId], references: [id], onDelete: SetNull)
+  store             Store     @relation("StoreInventoryCards", fields: [storeId], references: [id], onDelete: Cascade)
+  organization      Organization @relation("OrganizationInventoryCards", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  items             InventoryCardItem[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model InventoryCardItem {
+  id                String    @id @default(uuid()) @db.Uuid
+  cardId            String    @db.Uuid
+  itemId            String    @db.Uuid
+  
+  quantity          Int
+  unitOfMeasurement String?
+  isNewSupply       Boolean   @default(true)
+  serialNumber      String?
+  condition         ConditionStatus @default(NEW)
+  notes             String?
+  
+  card              InventoryCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------
+// 9. ISSUANCE REGISTER (Issue to Guards/Staff)
+// ------------------------------------------
+
+model IssuanceRegister {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  
+  issueNumber       String    @unique
+  guardId           String    @db.Uuid
+  storeId           String    @db.Uuid
+  
+  issuanceDate      DateTime  @default(now())
+  issuedBy          String    @db.Uuid
+  
+  status            IssuanceStatus @default(ISSUED)
+  notes             String?
+  
+  guard             Guard     @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  store             Store     @relation("StoreIssuances", fields: [storeId], references: [id], onDelete: Cascade)
+  issuer            User      @relation(fields: [issuedBy], references: [id], onDelete: Cascade)
+  organization      Organization @relation("OrganizationIssuances", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  items             IssuanceItem[]
+  returns           ReturnRegister[] @relation("IssuanceReturns")
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model IssuanceItem {
+  id                String    @id @default(uuid()) @db.Uuid
+  issuanceId        String    @db.Uuid
+  itemId            String    @db.Uuid
+  
+  quantity          Int
+  unitOfMeasurement String?
+  serialNumber      String?
+  condition         ConditionStatus @default(NEW)
+  notes             String?
+  
+  issuance          IssuanceRegister @relation(fields: [issuanceId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------
+// 10. RETURN REGISTER (Items Returned)
+// ------------------------------------------
+
+model ReturnRegister {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  
+  returnNumber      String    @unique
+  issuanceId        String    @db.Uuid
+  guardId           String    @db.Uuid
+  storeId           String    @db.Uuid
+  
+  returnDate        DateTime  @default(now())
+  receivedBy        String    @db.Uuid
+  
+  totalQuantityReturned Int?
+  notes             String?
+  
+  issuance          IssuanceRegister @relation("IssuanceReturns", fields: [issuanceId], references: [id], onDelete: Cascade)
+  guard             Guard     @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  store             Store     @relation("StoreReturns", fields: [storeId], references: [id], onDelete: Cascade)
+  receiver          User      @relation(fields: [receivedBy], references: [id], onDelete: Cascade)
+  organization      Organization @relation("OrganizationReturns", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  items             ReturnItem[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model ReturnItem {
+  id                String    @id @default(uuid()) @db.Uuid
+  returnId          String    @db.Uuid
+  itemId            String    @db.Uuid
+  
+  quantityReturned  Int
+  unitOfMeasurement String?
+  condition         ConditionStatus @default(GOOD)
+  notes             String?
+  
+  return            ReturnRegister @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------
+// 11. STOCK MOVEMENTS (Audit Trail)
+// ------------------------------------------
+
+model StockMovement {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @db.Uuid
+  
+  storeId           String    @db.Uuid
+  itemId            String    @db.Uuid
+  
+  movementType      MovementType
+  quantity          Int
+  
+  referenceType     String?   // "GRN", "PR", "TRANSFER", "ISSUANCE", "RETURN"
+  referenceId       String?
+  referenceNumber   String?
+  
+  movedBy           String    @db.Uuid
+  movementDate      DateTime  @default(now())
+  notes             String?
+  
+  store             Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [movedBy], references: [id], onDelete: Cascade)
+  organization      Organization @relation("OrganizationStockMovements", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime  @default(now())
+}
+
 enum AttendanceType {
   P
   A
@@ -623,4 +1227,86 @@ enum DeductionType {
   loanRepayment
   penalty
   miscCharges
+}
+
+// ------------------------------------------
+// INVENTORY MANAGEMENT ENUMS
+// ------------------------------------------
+
+enum PRStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum POStatus {
+  DRAFT
+  SUBMITTED
+  CONFIRMED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+enum GRNStatus {
+  PENDING
+  INSPECTING
+  RECEIVED
+  PARTIAL
+  REJECTED
+}
+
+enum GRNType {
+  PURCHASE
+  TRANSFER
+  RETURN
+  ADJUSTMENT
+}
+
+enum ConditionStatus {
+  NEW
+  GOOD
+  USED
+  DAMAGED
+  MISSING
+  EXPIRED
+}
+
+enum MovementType {
+  INBOUND
+  OUTBOUND
+  ADJUSTMENT
+  TRANSFER
+  RETURN
+  ISSUANCE
+  CONSUMPTION
+}
+
+enum TransferStatus {
+  DRAFT
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+}
+
+enum CardStatus {
+  ACTIVE
+  RETURNED
+  LOST
+  DAMAGED
+}
+
+enum IssuanceStatus {
+  ISSUED
+  PARTIAL_RETURN
+  FULL_RETURN
+  DAMAGED
 }

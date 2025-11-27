@@ -23,6 +23,7 @@ import { BiometricModule } from './biometric/biometric.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { PersonsModule } from './persons/persons.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { PersonsModule } from './persons/persons.module';
     BiometricModule,
     AccountsModule,
     PersonsModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [

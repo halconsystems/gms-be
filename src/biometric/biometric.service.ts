@@ -186,6 +186,7 @@ export class BiometricService {
 
   /**
    * Check health status of local agent
+   * Transforms agent's complex response to frontend's expected format
    */
   async checkAgentHealth() {
     this.logger.debug('Checking agent health at ' + this.AGENT_BASE_URL + '/health');
@@ -196,18 +197,25 @@ export class BiometricService {
         }),
       );
 
-      this.logger.debug('Raw agent response status: ' + (response as any).status);
-      this.logger.debug('Agent response data: ' + JSON.stringify((response as any).data));
-      this.logger.debug('Agent device object: ' + JSON.stringify((response as any).data?.device));
-      this.logger.debug('Agent isConnected value: ' + (response as any).data?.device?.isConnected);
-      
-      // Return the agent response directly - TransformInterceptor will wrap it with {status: 'success', message: '...', data: ...}
-      // This avoids double-wrapping: service returns agent data directly, global interceptor adds the wrapper
       const agentResponse = (response as any).data;
-      this.logger.debug('Returning agent response directly: ' + JSON.stringify(agentResponse));
-      this.logger.debug('Agent device.isConnected: ' + agentResponse?.device?.isConnected);
+      this.logger.debug('Raw agent response: ' + JSON.stringify(agentResponse));
       
-      return agentResponse;
+      // Transform agent's comprehensive response to frontend's expected format
+      // Agent returns: {status, agent, sdk, device: {isConnected, count, ...}, memory, diagnostics, ...}
+      // Frontend expects: {status, device: {isConnected}}
+      const transformedResponse = {
+        status: agentResponse?.status || 'unhealthy',
+        device: {
+          isConnected: agentResponse?.device?.isConnected ?? false,
+          // Include count if available
+          ...(agentResponse?.device?.count !== undefined && { count: agentResponse.device.count }),
+        },
+      };
+      
+      this.logger.debug('Transformed response: ' + JSON.stringify(transformedResponse));
+      
+      // Return transformed data - TransformInterceptor will wrap it with {status: 'success', message: '...', data: ...}
+      return transformedResponse;
     } catch (error) {
       this.logger.error('Agent health check error details: ' + JSON.stringify({
         code: (error as any).code,
@@ -220,9 +228,12 @@ export class BiometricService {
       }
       
       this.logger.warn('Returning unhealthy status due to agent error');
-      // Return unhealthy status directly - TransformInterceptor will wrap it
+      // Return unhealthy status in frontend's expected format
       return {
         status: 'unhealthy',
+        device: {
+          isConnected: false,
+        },
         error: 'Agent not reachable',
       };
     }
