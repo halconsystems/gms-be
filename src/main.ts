@@ -17,10 +17,27 @@ async function bootstrap() {
   app.use(require('body-parser').urlencoded({ limit: '50mb', extended: true }));
 
   app.enableCors({
-    origin: ['https://portal.guardsos.com', 'http://localhost:3000'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        'https://portal.guardsos.com',
+        'http://portal.guardsos.com',
+        'https://www.guardsos.com',
+        'http://www.guardsos.com',
+        'http://localhost:3000',
+        'http://localhost:3001',
+      ];
+      
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Agent-Ip'],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+    maxAge: 86400,
   });
 
   dotenv.config();
