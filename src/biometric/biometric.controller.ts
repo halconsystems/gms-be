@@ -6,6 +6,8 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  Headers,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -30,7 +32,7 @@ export class BiometricController {
   @ApiOperation({
     summary: 'Capture fingerprint from local USB device',
     description:
-      'Proxies request to local agent service running on localhost:8765. Requires agent to be running.',
+      'Proxies request to local agent service. Agent location determined by X-Agent-Ip header or defaults to localhost:8765.',
   })
   @ApiResponse({
     status: 200,
@@ -44,8 +46,11 @@ export class BiometricController {
     description:
       'Local agent service is not running or device not connected',
   })
-  async captureFingerprint(@Body() dto: CaptureFingerprintDto) {
-    return await this.biometric.captureFingerprint(dto);
+  async captureFingerprint(
+    @Body() dto: CaptureFingerprintDto,
+    @Headers('x-agent-ip') agentIp?: string,
+  ) {
+    return await this.biometric.captureFingerprint(dto, agentIp);
   }
 
   @Post('save-fingerprint')
@@ -71,14 +76,28 @@ export class BiometricController {
   @ApiOperation({
     summary: 'Check local agent service health',
     description:
-      'Returns health status of the local fingerprint agent service and connected devices.',
+      'Returns health status of the fingerprint agent. Agent location determined by X-Agent-Ip header or defaults to localhost:8765. Also returns the client IP for auto-detection.',
   })
   @ApiResponse({
     status: 200,
     description: 'Agent health status retrieved',
   })
-  async getAgentHealth() {
-    return await this.biometric.checkAgentHealth();
+  async getAgentHealth(
+    @Headers('x-agent-ip') agentIp?: string,
+    @Req() req?: any,
+  ) {
+    // Extract client IP for auto-detection on frontend
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                     req.connection.remoteAddress || 
+                     'unknown';
+    
+    const healthStatus = await this.biometric.checkAgentHealth(agentIp);
+    
+    // Add client IP to response for frontend auto-detection
+    return {
+      ...healthStatus,
+      clientIp: clientIp,
+    };
   }
 
   // === Networked Biometric Device Endpoints (ZKTeco) ===

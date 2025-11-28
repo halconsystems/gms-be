@@ -8,6 +8,7 @@ import {
   RequestTimeoutException,
   HttpException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { FileService } from 'src/file/file.service';
 import { CaptureFingerprintDto } from './dto/capture-fingerprint.dto';
@@ -26,12 +27,19 @@ export class BiometricService {
    * Agent base URL for fingerprint operations.
    * Compatible with both Node.js agent (gms-fingerprint-agent) and C# agent (gms-fingerprint-agent-cs).
    * Both agents listen on port 8765 by default.
-   * To change port: Update appsettings.json (C#) or .env (Node.js) and restart agent.
+   * 
+   * Configuration via environment variable:
+   * - FINGERPRINT_AGENT_URL: Full URL to agent (e.g., http://192.168.1.100:8765)
+   * - Defaults to http://localhost:8765 if not set
+   * 
+   * Important: If backend is on a different machine than agent, use the agent's actual IP/hostname
+   * Example: export FINGERPRINT_AGENT_URL=http://192.168.1.50:8765
+   * 
    * API Contract: Same endpoints (/health, /api/fingerprint/capture, /api/fingerprint/verify, /api/fingerprint/device-status)
    * Response Format: Flat JSON with camelCase fields (success, image, template, quality, requestId, etc.)
    * Error Codes: DEVICE_NOT_CONNECTED, CAPTURE_TIMEOUT, INVALID_DEVICE_INDEX, POOR_QUALITY, CONCURRENT_CAPTURE, SDK_ERROR, etc.
    */
-  private readonly AGENT_BASE_URL = 'http://localhost:8765';
+  private readonly AGENT_BASE_URL: string;
   private readonly AGENT_TIMEOUT = 30000;
   private readonly AGENT_RETRY_ATTEMPTS = 3;
   private readonly AGENT_RETRY_DELAY = 1000;
@@ -39,7 +47,17 @@ export class BiometricService {
   constructor(
     private readonly httpService: HttpService,
     private readonly fileService: FileService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    // Read agent URL from environment variable, default to localhost
+    this.AGENT_BASE_URL = this.configService.get<string>(
+      'FINGERPRINT_AGENT_URL',
+      'http://localhost:8765',
+    );
+    this.logger.log(
+      `[INIT] Fingerprint agent configured at: ${this.AGENT_BASE_URL}`,
+    );
+  }
 
   async onModuleInit() {
     const devices = [{ deviceIp: this.deviceIp, devicePort: this.devicePort }];
@@ -56,7 +74,10 @@ export class BiometricService {
   /**
    * Capture fingerprint from local USB device via agent
    */
-  async captureFingerprint(dto: CaptureFingerprintDto) {
+  async captureFingerprint(dto: CaptureFingerprintDto, agentIp?: string) {
+    // Build agent URL from provided IP or use default
+    const agentUrl = this.buildAgentUrl(agentIp);
+    
     // Debug log to inspect raw DTO values from global pipe
     this.logger.debug('Raw DTO before normalization: ' + JSON.stringify(dto));
 
@@ -77,7 +98,7 @@ export class BiometricService {
     );
 
     this.logger.debug(
-      `Proxying to agent at ${this.AGENT_BASE_URL}/fingerprint/capture with payload: ${JSON.stringify(normalizedDto)}`,
+      `Proxying to agent at ${agentUrl}/fingerprint/capture with payload: ${JSON.stringify(normalizedDto)}`,
     );
 
     try {
@@ -85,7 +106,7 @@ export class BiometricService {
         async () => {
           const result = await firstValueFrom(
             this.httpService.post(
-              `${this.AGENT_BASE_URL}/fingerprint/capture`,
+              `${agentUrl}/fingerprint/capture`,
               normalizedDto,
               { timeout: effectiveTimeout },
             ),
@@ -190,12 +211,19 @@ export class BiometricService {
    * 
    * Important: Agent returns HTTP 200 when healthy, HTTP 503 when degraded/unhealthy
    * We must accept both responses as valid (not treat 503 as error)
+   * 
+   * @param agentIp Optional agent IP address (e.g., 192.168.1.50)
+   *                If not provided, uses default from config
    */
-  async checkAgentHealth() {
+  async checkAgentHealth(agentIp?: string) {
+    // Build agent URL from provided IP or use default
+    const agentUrl = this.buildAgentUrl(agentIp);
+    
     this.logger.log('');
     this.logger.log('█'.repeat(60));
     this.logger.log('█ HEALTH CHECK START');
-    this.logger.log('█ Target URL: ' + this.AGENT_BASE_URL + '/health');
+    this.logger.log('█ Target URL: ' + agentUrl + '/health');
+    this.logger.log('█ Agent IP provided: ' + (agentIp ? 'yes' : 'no'));
     this.logger.log('█ Timeout: 5000ms');
     this.logger.log('█ Timestamp: ' + new Date().toISOString());
     this.logger.log('█'.repeat(60));
@@ -215,7 +243,7 @@ export class BiometricService {
       this.logger.log('HTTP Config: ' + JSON.stringify(httpConfig));
       
       const response = await firstValueFrom(
-        this.httpService.get(`${this.AGENT_BASE_URL}/health`, httpConfig),
+        this.httpService.get(`${agentUrl}/health`, httpConfig),
       );
 
       this.logger.log('✓✓✓ RESPONSE RECEIVED ✓✓✓');
@@ -299,7 +327,7 @@ export class BiometricService {
       
       if ((error as any).code === 'ECONNREFUSED') {
         this.logger.error('⚠⚠⚠ CONNECTION REFUSED ⚠⚠⚠');
-        this.logger.error('Agent is not running on localhost:8765');
+        this.logger.error('Agent is not running on ' + agentUrl);
         this.logger.error('Hostname: ' + (error as any).hostname);
         this.logger.error('Port: ' + (error as any).port);
       }
@@ -328,6 +356,25 @@ export class BiometricService {
         error: 'Agent not reachable',
       };
     }
+  }
+
+  /**
+   * Build agent URL from provided IP or use default
+   * @param agentIp Optional IP address (e.g., 192.168.1.50)
+   * @returns Full agent URL (e.g., http://192.168.1.50:8765)
+   */
+  private buildAgentUrl(agentIp?: string): string {
+    if (agentIp && agentIp.trim()) {
+      // User provided IP - build URL from it
+      const cleanIp = agentIp.trim();
+      // If IP doesn't have protocol, add it
+      if (cleanIp.startsWith('http://') || cleanIp.startsWith('https://')) {
+        return cleanIp;
+      }
+      return `http://${cleanIp}:8765`;
+    }
+    // Use default from config or environment variable
+    return this.AGENT_BASE_URL;
   }
 
   /**

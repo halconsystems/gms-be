@@ -20,7 +20,7 @@ async function bootstrap() {
     origin: ['https://portal.guardsos.com', 'http://localhost:3000'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Agent-Ip'],
   });
 
   dotenv.config();
