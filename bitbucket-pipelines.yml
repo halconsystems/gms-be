@@ -38,7 +38,7 @@ pipelines:
             - sleep 10
 
             - echo "🚀 Starting PM2..."
-            - sudo pm2 start dist/src/main.js --name gms-be --no-autorestart
+            - sudo pm2 start dist/main.js --name gms-be --no-autorestart
             - sudo pm2 save
             - sudo pm2 startup -u ubuntu --hp /home/ubuntu
             - sleep 5
