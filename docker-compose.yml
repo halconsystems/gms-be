@@ -7,22 +7,27 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ../nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - gms-be
-      - gms-fe
+      - gms-fe-js
     networks:
       - halcon
     restart: unless-stopped
+    environment:
+      - NGINX_HOST=api.guardsos.com,portal.guardsos.com
+      - NGINX_PORT=80
 
   gms-be:
     image: your-backend-image:latest
     container_name: gms-be
     expose:
-      - "3000"
+      - "5001"
+    ports:
+      - "5001:5001"
     environment:
       - NODE_ENV=production
+      - PORT=5001
       - DATABASE_URL=postgresql://postgres:123@dev-db:5432/nest
     depends_on:
       - dev-db
@@ -30,11 +35,13 @@ services:
       - halcon
     restart: unless-stopped
 
-  gms-fe:
+  gms-fe-js:
     image: your-frontend-image:latest
     container_name: gms-fe-js
     expose:
       - "3000"
+    ports:
+      - "3000:3000"
     networks:
       - halcon
     restart: unless-stopped
