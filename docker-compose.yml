@@ -1,17 +1,5 @@
 version : "3.8"
 services:
-  nginx:
-    image: nginx:latest
-    container_name: gms-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    networks:
-      - halcon
-    restart: unless-stopped
-
   dev-db:
     image: postgres:13
     ports:
@@ -22,6 +10,8 @@ services:
       POSTGRES_DB: nest
     networks:
       - halcon
-
 networks:
   halcon:
+
+
+  
