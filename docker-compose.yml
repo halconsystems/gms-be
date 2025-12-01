@@ -1,73 +1,17 @@
-version: "3.8"
+version : "3.8"
 services:
-  nginx:
-    image: nginx:latest
-    container_name: gms-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - gms-be
-    networks:
-      - halcon
-    restart: unless-stopped
-    environment:
-      - NGINX_HOST=api.guardsos.com
-      - NGINX_PORT=80
-    healthcheck:
-      test: ["CMD", "nginx", "-t"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  gms-be:
-    image: gms-backend:latest
-    container_name: gms-be
-    expose:
-      - "5001"
-    ports:
-      - "5001:5001"
-    environment:
-      - NODE_ENV=production
-      - PORT=5001
-      - DATABASE_URL=postgresql://postgres:gmspassword@dev-db:5432/nest
-    depends_on:
-      dev-db:
-        condition: service_healthy
-    networks:
-      - halcon
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   dev-db:
     image: postgres:13
-    container_name: gms-postgres
     ports:
       - 5434:5432
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: gmspassword
+      POSTGRES_PASSWORD: 123
       POSTGRES_DB: nest
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     networks:
       - halcon
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  postgres_data:
-
 networks:
   halcon:
-    driver: bridge
+
+
+  
