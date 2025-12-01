@@ -13,10 +13,11 @@ pipelines:
             - echo "🔑 Setting permissions..."
             - sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
             - cd /home/ubuntu/gms-be
-            - cp .env ../
+            
             - echo "🛑 Stopping old PM2 process..."
             - sudo pm2 stop gms-be || true
             - sudo pm2 delete gms-be || true
+            - sleep 5
 
             - echo "🔄 Updating code..."
             - git clean -fdx
@@ -25,7 +26,7 @@ pipelines:
 
             - echo "🧹 Cleaning dependencies & Prisma..."
             - npm cache clean --force
-            - cp /home/ubuntu/.env /home/ubuntu/gms-be
+            - if [ -f /home/ubuntu/.env ]; then cp /home/ubuntu/.env /home/ubuntu/gms-be/.env; fi
 
             - echo "📦 Installing dependencies..."
             - npm install
@@ -33,8 +34,14 @@ pipelines:
             - echo "🏗️ Building project..."
             - npm run build
             - npx prisma generate
-            - sleep 20
+            - npx prisma migrate deploy || echo "Migrations already applied"
+            - sleep 10
+
             - echo "🚀 Starting PM2..."
-            - sudo pm2 start dist/src/main.js --name gms-be
+            - sudo pm2 start dist/src/main.js --name gms-be --no-autorestart
+            - sudo pm2 save
+            - sudo pm2 startup -u ubuntu --hp /home/ubuntu
+            - sleep 5
 
             - echo "✅ Deployment completed!"
+            - sudo pm2 status
