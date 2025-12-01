@@ -113,6 +113,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       const features =
         organization?.organizationFeatures?.map((f) => f.feature.name) || [];
 
+      this.logger.debug(`User fetched from DB:`, {
+        userId: validatedUser?.id,
+        email: validatedUser?.email,
+        hasOrganization: !!organizationId,
+        organizationId: organization?.id,
+      });
+
       // 4. Check role (superadmin doesn't need organizationId)
       const isSuperAdmin = validatedUser.userRoles.some(
         (ur) => ur.role.roleName === 'superAdmin',
@@ -137,7 +144,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         : validatedUser.userOffice?.[0]?.officeId;
 
       // This becomes available as req.user in your controllers/decorators
-      return {
+      const userObj = {
         id: validatedUser.id,
         email: validatedUser.email,
         organizationId, // Will be undefined for superadmin
@@ -147,6 +154,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         officeId,
         clientId: validatedUser.client?.id, // Include clientId if user has client association
       };
+
+      this.logger.debug(`Setting req.user:`, {
+        id: userObj.id,
+        email: userObj.email,
+        organizationId: userObj.organizationId,
+        isSuperAdmin: userObj.isSuperAdmin,
+        role: userObj.role,
+      });
+
+      return userObj;
     } catch (error) {
       // Log unexpected errors but don't expose internals
       if (!(error instanceof UnauthorizedException)) {

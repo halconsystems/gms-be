@@ -1,17 +1,64 @@
 version : "3.8"
 services:
+  nginx:
+    image: nginx:latest
+    container_name: gms-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - gms-be
+      - gms-fe
+    networks:
+      - halcon
+    restart: unless-stopped
+
+  gms-be:
+    image: your-backend-image:latest
+    container_name: gms-be
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:123@dev-db:5432/nest
+    depends_on:
+      - dev-db
+    networks:
+      - halcon
+    restart: unless-stopped
+
+  gms-fe:
+    image: your-frontend-image:latest
+    container_name: gms-fe-js
+    expose:
+      - "3000"
+    networks:
+      - halcon
+    restart: unless-stopped
+
   dev-db:
     image: postgres:13
+    container_name: gms-postgres
     ports:
       - 5434:5432
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123
       POSTGRES_DB: nest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - halcon
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
 networks:
   halcon:
-
+    driver: bridge
 
   

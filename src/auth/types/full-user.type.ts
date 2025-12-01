@@ -59,6 +59,16 @@ export const fullUserInclude = {
           },
         },
       },
+      office: {
+        select: {
+          id: true,
+          branchName: true,
+          city: true,
+          province: true,
+          email: true,
+          contactNumber: true,
+        },
+      },
     },
   },
   client: {
@@ -166,6 +176,14 @@ export type FullUserType = {
           name: string;
         };
       }>;
+    };
+    office: {
+      id: string;
+      branchName: string;
+      city: string;
+      province: string;
+      email: string;
+      contactNumber: string;
     };
   }>;
   client: {

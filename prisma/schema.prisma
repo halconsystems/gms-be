@@ -870,6 +870,7 @@ model PurchaseRequestItem {
   itemId            String    @db.Uuid
   
   quantity          Int
+  unitOfMeasurement String?   // e.g. "Small", "Medium", "Large", "Pieces", "Kg", "Liters"
   unitPrice         Decimal?  @db.Decimal(10, 2)
   totalPrice        Decimal?  @db.Decimal(12, 2)
   notes             String?

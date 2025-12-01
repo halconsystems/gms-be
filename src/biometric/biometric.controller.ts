@@ -84,12 +84,23 @@ export class BiometricController {
   })
   async getAgentHealth(
     @Headers('x-agent-ip') agentIp?: string,
+    @Headers('x-real-ip') realIp?: string,
+    @Headers('cf-connecting-ip') cfIp?: string,
     @Req() req?: any,
   ) {
     // Extract client IP for auto-detection on frontend
-    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                     req.connection.remoteAddress || 
-                     'unknown';
+    // Priority: x-real-ip > cf-connecting-ip > x-forwarded-for > remoteAddress
+    let clientIp = 'unknown';
+    
+    if (realIp) {
+      clientIp = realIp.trim();
+    } else if (cfIp) {
+      clientIp = cfIp.trim();
+    } else if (req.headers['x-forwarded-for']) {
+      clientIp = req.headers['x-forwarded-for'].split(',')[0]?.trim();
+    } else if (req.connection?.remoteAddress) {
+      clientIp = req.connection.remoteAddress;
+    }
     
     const healthStatus = await this.biometric.checkAgentHealth(agentIp);
     

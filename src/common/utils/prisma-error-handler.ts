@@ -32,12 +32,49 @@ export function handlePrismaError(error: unknown) {
 
       case 'P2003': {
         const field = error.meta?.field_name as string | undefined;
-        if (field?.includes('userId')) {
+        const table = error.meta?.relation_name as string | undefined;
+        const modelName = error.meta?.model_name as string | undefined;
+        
+        // Normalize field name: lowercase and strip _fkey suffix for case-insensitive matching
+        const normalizedField = field?.toLowerCase().replace(/_fkey$/, '') || '';
+        
+        console.error('[Prisma P2003 Debug] Foreign Key Constraint Violation:', {
+          field,
+          normalizedField,
+          table,
+          modelName,
+          meta: error.meta,
+          message: error.message
+        });
+
+        // Use normalized field for all matching operations
+        if (normalizedField.includes('userid') || normalizedField.includes('requestedby')) {
           throw new BadRequestException(
-            'Invalid user ID or the user does not exist',
+            'Invalid user: The user does not exist or has been deleted',
           );
         }
-        throw new BadRequestException('Invalid reference to another record.');
+        
+        if (normalizedField.includes('storeid')) {
+          throw new BadRequestException(
+            'Invalid store: The store does not exist or is not accessible',
+          );
+        }
+        
+        if (normalizedField.includes('itemid')) {
+          throw new BadRequestException(
+            'Invalid item: One or more items do not exist or are not accessible',
+          );
+        }
+        
+        if (normalizedField.includes('organizationid')) {
+          throw new BadRequestException(
+            'Invalid organization: The organization does not exist',
+          );
+        }
+
+        throw new BadRequestException(
+          `Invalid reference to another record (field: ${field || 'unknown'}). Please verify that all referenced records exist and are accessible to your organization.`,
+        );
       }
 
       case 'P2025':

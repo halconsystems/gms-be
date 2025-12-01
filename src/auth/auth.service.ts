@@ -39,7 +39,24 @@ export class AuthService {
 
     const rawUser = await this.prisma.user.findUnique({
       where: { id: user.id },
-      include: { userRoles: { include: { role: true } }, userOffice: true, client: true },
+      include: { 
+        userRoles: { include: { role: true } }, 
+        userOffice: {
+          include: {
+            office: {
+              select: {
+                id: true,
+                branchName: true,
+                city: true,
+                province: true,
+                email: true,
+                contactNumber: true,
+              },
+            },
+          },
+        },
+        client: true,
+      },
     });
 
     if (!rawUser) throw new NotFoundException('User not found');
@@ -59,7 +76,7 @@ export class AuthService {
         : null;
 
     const token = this.jwtService.sign({
-      userId: fullUser.id,
+      sub: fullUser.id, // Standard JWT 'sub' claim for subject (user ID)
       email: fullUser.email,
       roleName,
       organizationId,
@@ -67,7 +84,16 @@ export class AuthService {
       clientId: fullUser.client?.id, // Include clientId if user has client association
     });
 
-    return { user: fullUser, token: token };
+    // Get office data if available
+    const officeData = fullUser.userOffice?.[0]?.office || null;
+
+    return { 
+      user: {
+        ...fullUser,
+        office: officeData,
+      }, 
+      token: token 
+    };
   }
 
   /** ---------------- USER LOGIN ---------------- */
@@ -163,7 +189,7 @@ export class AuthService {
 
       // Generate JWT token with user info and features
       const token = this.jwtService.sign({
-        userId: user.id,
+        sub: user.id, // Standard JWT 'sub' claim for subject (user ID)
         email: user.email,
         roleName,
         organizationId,
@@ -212,6 +238,8 @@ export class AuthService {
       }
 
       // Format login response with defensive null checks
+      const officeData = user.userOffice?.[0]?.office || null;
+      
       return {
         token: token,
         user: {
@@ -225,6 +253,14 @@ export class AuthService {
           isSuperAdmin,
           isSupervisor,
           supervisorInfo,
+          office: officeData ? {
+            id: officeData.id,
+            branchName: officeData.branchName,
+            city: officeData.city,
+            province: officeData.province,
+            email: officeData.email,
+            contactNumber: officeData.contactNumber,
+          } : null,
           client: user.client ? {
             id: user.client.id,
             companyName: user.client.companyName,

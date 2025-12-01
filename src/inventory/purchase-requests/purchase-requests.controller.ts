@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Put, Delete, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Put, Delete, Query, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.decorator';
@@ -25,8 +25,20 @@ export class PurchaseRequestsController {
     @GetOrganizationId() organizationId: string,
     @Req() req: any,
   ) {
-    const userId = req.user?.id || organizationId;
-    return this.prService.create(createPrDto, organizationId, userId);
+    console.log('[PR Controller] Full req.user object:', JSON.stringify(req.user, null, 2));
+    console.log('[PR Controller] req.user keys:', Object.keys(req.user || {}));
+    console.log('[PR Controller] req.user?.id:', req.user?.id);
+    console.log('[PR Controller] req.user?.sub:', req.user?.sub);
+    
+    const userId = req.user?.id || req.user?.sub;
+    const isSuperAdmin = req.user?.isSuperAdmin || false;
+    
+    if (!userId) {
+      console.error('[PR Controller] ERROR: No user ID found in req.user:', req.user);
+      throw new BadRequestException('User ID not found in authentication token');
+    }
+    console.log('[PR Controller] Create called with:', { userId, isSuperAdmin, organizationId });
+    return this.prService.create(createPrDto, organizationId, userId, isSuperAdmin);
   }
 
   @Get()
@@ -79,7 +91,10 @@ export class PurchaseRequestsController {
     @GetOrganizationId() organizationId: string,
     @Req() req: any,
   ) {
-    const userId = req.user?.id || organizationId;
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in authentication token');
+    }
     return this.prService.approve(id, organizationId, userId, dto.notes);
   }
 
@@ -92,7 +107,10 @@ export class PurchaseRequestsController {
     @GetOrganizationId() organizationId: string,
     @Req() req: any,
   ) {
-    const userId = req.user?.id || organizationId;
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in authentication token');
+    }
     return this.prService.reject(id, organizationId, userId, dto.notes);
   }
 
@@ -105,7 +123,10 @@ export class PurchaseRequestsController {
     @GetOrganizationId() organizationId: string,
     @Req() req: any,
   ) {
-    const userId = req.user?.id || organizationId;
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in authentication token');
+    }
     return this.prService.cancel(id, organizationId, userId, dto.notes);
   }
 
