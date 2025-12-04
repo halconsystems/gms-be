@@ -27,18 +27,28 @@ export class PurchaseRequestsController {
   ) {
     console.log('[PR Controller] Full req.user object:', JSON.stringify(req.user, null, 2));
     console.log('[PR Controller] req.user keys:', Object.keys(req.user || {}));
-    console.log('[PR Controller] req.user?.id:', req.user?.id);
-    console.log('[PR Controller] req.user?.sub:', req.user?.sub);
     
-    const userId = req.user?.id || req.user?.sub;
+    // Extract userId from JWT payload - JWT strategy returns 'userId' field
+    const userId = req.user?.userId;
     const isSuperAdmin = req.user?.isSuperAdmin || false;
+    const userRole = req.user?.roleName || req.user?.role;
     
     if (!userId) {
       console.error('[PR Controller] ERROR: No user ID found in req.user:', req.user);
       throw new BadRequestException('User ID not found in authentication token');
     }
-    console.log('[PR Controller] Create called with:', { userId, isSuperAdmin, organizationId });
-    return this.prService.create(createPrDto, organizationId, userId, isSuperAdmin);
+    console.log('[PR Controller] Create called with:', { userId, userRole, isSuperAdmin, organizationId });
+    return this.prService.create(createPrDto, organizationId, userId, isSuperAdmin, userRole);
+  }
+
+  @Get('stores/by-office/:officeId')
+  @ApiOperation({ summary: 'Get stores by office ID' })
+  @ResponseMessage('Stores fetched successfully')
+  getStoresByOffice(
+    @Param('officeId') officeId: string,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return this.prService.getStoresByOffice(officeId, organizationId);
   }
 
   @Get()
@@ -91,11 +101,12 @@ export class PurchaseRequestsController {
     @GetOrganizationId() organizationId: string,
     @Req() req: any,
   ) {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
+    const userRole = req.user?.roleName || req.user?.role;
     if (!userId) {
       throw new BadRequestException('User ID not found in authentication token');
     }
-    return this.prService.approve(id, organizationId, userId, dto.notes);
+    return this.prService.approve(id, organizationId, userId, dto.notes, userRole);
   }
 
   @Post(':id/reject')
@@ -107,11 +118,12 @@ export class PurchaseRequestsController {
     @GetOrganizationId() organizationId: string,
     @Req() req: any,
   ) {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
+    const userRole = req.user?.roleName || req.user?.role;
     if (!userId) {
       throw new BadRequestException('User ID not found in authentication token');
     }
-    return this.prService.reject(id, organizationId, userId, dto.notes);
+    return this.prService.reject(id, organizationId, userId, dto.notes, userRole);
   }
 
   @Post(':id/cancel')

@@ -6,17 +6,19 @@ import { GetPurchaseRequestDto } from './dto/get-purchase-request.dto';
 import { PaginatedResponse } from '../common/interfaces/prisma.types';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
 import { PRStatus } from 'src/prisma/prisma.types';
+import { RolesEnum } from 'src/common/enums/roles-enum';
 
 @Injectable()
 export class PurchaseRequestsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreatePurchaseRequestDto, organizationId: string, userId: string, isSuperAdmin: boolean = false): Promise<any> {
+  async create(dto: CreatePurchaseRequestDto, organizationId: string, userId: string, isSuperAdmin: boolean = false, userRole?: string): Promise<any> {
     try {
       // Log start of create operation
       console.log('[PR Service] Create called with:', {
         organizationId,
         userId,
+        userRole,
         isSuperAdmin,
         storeId: dto.storeId,
         itemIds: dto.items.map(i => i.itemId),
@@ -41,9 +43,14 @@ export class PurchaseRequestsService {
         throw new BadRequestException('User not found or invalid user ID');
       }
 
-      // Verify user belongs to organization (skip for superadmin)
+      // Determine if user is admin (skip office checks for admins and superadmins)
+      const isAdmin = isSuperAdmin || userRole === RolesEnum.organizationAdmin || userRole === RolesEnum.superAdmin;
+      console.log('[PR Service] User role check:', { userRole, isAdmin });
+
+      // Verify user belongs to organization (skip for admins and superadmin)
       let userOffice: any = null;
-      if (!isSuperAdmin) {
+      if (!isAdmin) {
+        // For non-admin users, check userOffice membership
         userOffice = await this.prisma.userOffice.findFirst({
           where: {
             userId,
@@ -55,33 +62,34 @@ export class PurchaseRequestsService {
           throw new BadRequestException('User does not have access to this organization');
         }
       } else {
-        console.log('[PR Service] Skipping user-organization membership check (superadmin):', { userId });
+        console.log('[PR Service] User is admin, skipping userOffice check:', { userId, userRole });
       }
 
-      // Auto-fill storeId if not provided - use user's office store
+      // Validate storeId is provided - user must select it explicitly
+      if (!dto.storeId) {
+        throw new BadRequestException('Store ID is required. Please select a store from the dropdown.');
+      }
+
       let storeId = dto.storeId;
-      if (!storeId && userOffice?.officeId) {
-        // Get the store associated with user's office
-        const office = await this.prisma.office.findUnique({
-          where: { id: userOffice.officeId },
-          select: { id: true, branchName: true }
+
+      // Validate or auto-fill officeId
+      let officeId = dto.officeId;
+      if (officeId) {
+        // If provided, validate it belongs to the organization and user has access
+        const office = await this.prisma.office.findFirst({
+          where: { id: officeId, organizationId },
         });
-        if (office) {
-          // Try to find a store for this office/organization
-          const stores = await this.prisma.store.findMany({
-            where: { organizationId },
-            take: 1
-          });
-          if (stores.length > 0) {
-            storeId = stores[0].id;
-            console.log('[PR Service] Auto-filled storeId from organization stores:', { storeId });
-          }
+        console.log('[PR Service] Office validation:', { officeId, found: !!office });
+        if (!office) {
+          throw new BadRequestException('Office not found for this organization');
         }
+      } else if (userOffice?.officeId) {
+        // Auto-fill from user's office
+        officeId = userOffice.officeId;
+        console.log('[PR Service] Auto-filled officeId from user office:', { officeId });
       }
 
-      if (!storeId) {
-        throw new BadRequestException('Store ID not provided and could not be auto-filled from user office');
-      }
+      console.log('[PR Service] Office resolved:', { officeId });
 
       // Verify store belongs to organization
       const store = await this.prisma.store.findFirst({
@@ -134,6 +142,7 @@ export class PurchaseRequestsService {
         data: {
           organizationId,
           storeId,
+          officeId,
           prNumber: `PR-${Date.now()}`,
           requestDate: new Date(),
           requiredDate,
@@ -150,7 +159,7 @@ export class PurchaseRequestsService {
             })),
           },
         },
-        include: { store: true, items: { include: { item: true } } },
+        include: { store: true, office: true, items: { include: { item: true } } },
       });
 
       console.log('[PR Service] PR created successfully:', { prId: result.id, prNumber: result.prNumber });
@@ -186,7 +195,7 @@ export class PurchaseRequestsService {
           skip,
           take,
           orderBy: { createdAt: 'desc' },
-          include: { store: true, items: { include: { item: true } } },
+          include: { store: true, office: true, items: { include: { item: true } } },
         }),
         this.prisma.purchaseRequest.count({ where }),
       ]);
@@ -207,7 +216,7 @@ export class PurchaseRequestsService {
     try {
       const pr = await this.prisma.purchaseRequest.findFirst({
         where: { id, organizationId },
-        include: { store: true, items: { include: { item: true } } },
+        include: { store: true, office: true, items: { include: { item: true } } },
       });
 
       if (!pr) {
@@ -236,18 +245,19 @@ export class PurchaseRequestsService {
 
       const updateData: any = { ...dto };
       delete updateData.storeId;  // Don't allow changing store
+      delete updateData.officeId;  // Don't allow changing office
       
       return await this.prisma.purchaseRequest.update({
         where: { id },
         data: updateData,
-        include: { store: true, items: { include: { item: true } } },
+        include: { store: true, office: true, items: { include: { item: true } } },
       });
     } catch (error) {
       throw handlePrismaError(error);
     }
   }
 
-  async approve(id: string, organizationId: string, userId: string, notes?: string): Promise<any> {
+  async approve(id: string, organizationId: string, userId: string, notes?: string, userRole?: string): Promise<any> {
     try {
       // Verify approver (user doing the approval) exists
       const approver = await this.prisma.user.findUnique({
@@ -258,16 +268,26 @@ export class PurchaseRequestsService {
         throw new BadRequestException('Approver user not found or invalid user ID');
       }
 
-      // Verify approver belongs to organization
-      const approverMembership = await this.prisma.userOffice.findFirst({
-        where: {
-          userId,
-          organizationId,
-        },
-      });
-      console.log('[PR Service] Approver-organization membership validation:', { userId, organizationId, found: !!approverMembership });
-      if (!approverMembership) {
-        throw new BadRequestException('Approver does not have access to this organization');
+      // Determine if user is admin (skip office checks for admins)
+      const isAdmin = userRole === RolesEnum.organizationAdmin || userRole === RolesEnum.superAdmin;
+      console.log('[PR Service] Approver role check:', { userRole, isAdmin });
+
+      // Verify approver belongs to organization (skip for admins)
+      if (!isAdmin) {
+        const organization = await this.prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        
+        const approverMembership = await this.prisma.userOffice.findFirst({
+          where: {
+            userId,
+            organizationId,
+          },
+        });
+        console.log('[PR Service] Approver-organization membership validation:', { userId, organizationId, found: !!approverMembership });
+        if (!approverMembership) {
+          throw new BadRequestException('Approver does not have access to this organization');
+        }
       }
 
       const pr = await this.prisma.purchaseRequest.findFirst({
@@ -290,14 +310,14 @@ export class PurchaseRequestsService {
           approvalDate: new Date(),
           notes: notes || pr.notes,
         },
-        include: { store: true, items: { include: { item: true } } },
+        include: { store: true, office: true, items: { include: { item: true } } },
       });
     } catch (error) {
       throw handlePrismaError(error);
     }
   }
 
-  async reject(id: string, organizationId: string, userId: string, reason?: string): Promise<any> {
+  async reject(id: string, organizationId: string, userId: string, reason?: string, userRole?: string): Promise<any> {
     try {
       // Verify rejector (user doing the rejection) exists
       const rejector = await this.prisma.user.findUnique({
@@ -308,16 +328,22 @@ export class PurchaseRequestsService {
         throw new BadRequestException('Rejector user not found or invalid user ID');
       }
 
-      // Verify rejector belongs to organization
-      const rejectorMembership = await this.prisma.userOffice.findFirst({
-        where: {
-          userId,
-          organizationId,
-        },
-      });
-      console.log('[PR Service] Rejector-organization membership validation:', { userId, organizationId, found: !!rejectorMembership });
-      if (!rejectorMembership) {
-        throw new BadRequestException('Rejector does not have access to this organization');
+      // Determine if user is admin (skip office checks for admins)
+      const isAdmin = userRole === RolesEnum.organizationAdmin || userRole === RolesEnum.superAdmin;
+      console.log('[PR Service] Rejector role check:', { userRole, isAdmin });
+
+      // Verify rejector belongs to organization (skip for admins)
+      if (!isAdmin) {
+        const rejectorMembership = await this.prisma.userOffice.findFirst({
+          where: {
+            userId,
+            organizationId,
+          },
+        });
+        console.log('[PR Service] Rejector-organization membership validation:', { userId, organizationId, found: !!rejectorMembership });
+        if (!rejectorMembership) {
+          throw new BadRequestException('Rejector does not have access to this organization');
+        }
       }
 
       const pr = await this.prisma.purchaseRequest.findFirst({
@@ -338,7 +364,7 @@ export class PurchaseRequestsService {
           status: PRStatus.REJECTED, 
           notes: reason || pr.notes 
         },
-        include: { store: true, items: { include: { item: true } } },
+        include: { store: true, office: true, items: { include: { item: true } } },
       });
     } catch (error) {
       throw handlePrismaError(error);
@@ -365,7 +391,7 @@ export class PurchaseRequestsService {
           status: PRStatus.CANCELLED,
           notes: notes || pr.notes,
         },
-        include: { store: true, items: { include: { item: true } } },
+        include: { store: true, office: true, items: { include: { item: true } } },
       });
     } catch (error) {
       throw handlePrismaError(error);
@@ -389,7 +415,7 @@ export class PurchaseRequestsService {
       return await this.prisma.purchaseRequest.update({
         where: { id },
         data: { status: PRStatus.SUBMITTED },
-        include: { store: true, items: { include: { item: true } } },
+        include: { store: true, office: true, items: { include: { item: true } } },
       });
     } catch (error) {
       throw handlePrismaError(error);
@@ -407,6 +433,31 @@ export class PurchaseRequestsService {
       }
 
       return await this.prisma.purchaseRequest.delete({ where: { id } });
+    } catch (error) {
+      throw handlePrismaError(error);
+    }
+  }
+
+  async getStoresByOffice(officeId: string, organizationId: string): Promise<any> {
+    try {
+      // Verify office belongs to organization
+      const office = await this.prisma.office.findFirst({
+        where: { id: officeId, organizationId },
+      });
+
+      if (!office) {
+        throw new NotFoundException('Office not found for this organization');
+      }
+
+      // Get all stores for this office
+      const stores = await this.prisma.store.findMany({
+        where: { officeId, organizationId },
+        select: { id: true, name: true, location: true, address: true, manager: true },
+        orderBy: { name: 'asc' },
+      });
+
+      console.log('[PR Service] Fetched stores for office:', { officeId, organizationId, count: stores.length });
+      return stores;
     } catch (error) {
       throw handlePrismaError(error);
     }

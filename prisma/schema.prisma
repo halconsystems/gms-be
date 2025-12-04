@@ -134,9 +134,26 @@ model Office {
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userOffice       UserOffice[]
   location         Location[]
+  fingerprintAgent FingerprintAgentConfig?
   
   // Inventory Relations
   stores           Store[]        @relation("OfficeStores")
+  purchaseRequests PurchaseRequest[]
+  purchaseOrders   PurchaseOrder[]
+}
+
+model FingerprintAgentConfig {
+  id               String    @id @default(uuid()) @db.Uuid
+  officeId         String    @unique @db.Uuid
+  agentIp          String    // e.g., "192.168.1.50"
+  agentPort        Int       @default(8765)
+  configuredAt     DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  updatedByUserId  String?   @db.Uuid
+  isActive         Boolean   @default(true)
+  office           Office    @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  @@index([officeId])
 }
 
 model OrganizationBankAccount {
@@ -669,7 +686,6 @@ model Store {
   
   inventory           Inventory[]
   purchaseRequests    PurchaseRequest[]
-  purchaseOrders      PurchaseOrder[]
   grns                Grn[]
   stockMovements      StockMovement[]
   stockTransfersFrom  StockTransfer[] @relation("TransferFromStore")
@@ -735,7 +751,6 @@ model Vendor {
   rating         Decimal?  @db.Decimal(3, 2)
   
   organization   Organization @relation("OrganizationVendors", fields: [organizationId], references: [id], onDelete: Cascade)
-  purchaseOrders PurchaseOrder[]
   grns           Grn[]
   preferredItems Item[]
   
@@ -840,6 +855,7 @@ model PurchaseRequest {
   
   prNumber          String    @unique  // e.g. "PR-2024-001"
   storeId           String    @db.Uuid
+  officeId          String?   @db.Uuid  // Office from which PR was created
   requestedBy       String    @db.Uuid
   
   requestDate       DateTime  @default(now())
@@ -853,6 +869,7 @@ model PurchaseRequest {
   approvalDate      DateTime?
   
   store             Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  office            Office?   @relation(fields: [officeId], references: [id], onDelete: SetNull)
   requester         User      @relation("PurchaseRequestRequester", fields: [requestedBy], references: [id], onDelete: Cascade)
   approver          User?     @relation("PurchaseRequestApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
   organization      Organization @relation("OrganizationPurchaseRequests", fields: [organizationId], references: [id], onDelete: Cascade)
@@ -886,14 +903,13 @@ model PurchaseRequestItem {
 model PurchaseOrder {
   id                String    @id @default(uuid()) @db.Uuid
   organizationId    String    @db.Uuid
+  officeId          String?   @db.Uuid
   
   poNumber          String    @unique  // e.g. "PO-2024-001"
   
   prId              String?   @db.Uuid
   purchaseRequest   PurchaseRequest? @relation(fields: [prId], references: [id], onDelete: SetNull)
   
-  vendorId          String    @db.Uuid
-  storeId           String    @db.Uuid
   orderedBy         String    @db.Uuid
   
   orderDate         DateTime  @default(now())
@@ -911,10 +927,9 @@ model PurchaseOrder {
   
   notes             String?
   
-  vendor            Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  store             Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
   creator           User      @relation(fields: [orderedBy], references: [id], onDelete: Cascade)
   organization      Organization @relation("OrganizationPurchaseOrders", fields: [organizationId], references: [id], onDelete: Cascade)
+  office            Office?   @relation(fields: [officeId], references: [id], onDelete: SetNull)
   
   items             PurchaseOrderItem[]
   grns              Grn[]

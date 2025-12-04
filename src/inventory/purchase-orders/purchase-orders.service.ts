@@ -14,20 +14,17 @@ export class PurchaseOrdersService {
 
   async create(dto: CreatePurchaseOrderDto, organizationId: string, userId: string): Promise<any> {
     try {
-      // Validate vendor belongs to organization
-      const vendor = await this.prisma.vendor.findFirst({
-        where: { id: dto.vendorId, organizationId },
-      });
-      if (!vendor) {
-        throw new BadRequestException('Vendor not found or does not belong to your organization');
-      }
+      console.log('[PurchaseOrdersService] Creating PO with:', { organizationId, userId, itemCount: dto.items?.length });
 
-      // Validate store belongs to organization
-      const store = await this.prisma.store.findFirst({
-        where: { id: dto.storeId, organizationId },
-      });
-      if (!store) {
-        throw new BadRequestException('Store not found or does not belong to your organization');
+      // Validate user exists
+      if (userId) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+        });
+        if (!user) {
+          console.warn(`[PurchaseOrdersService] User ${userId} not found`);
+          throw new BadRequestException('Current user is not valid');
+        }
       }
 
       // If prId is provided, validate PR belongs to organization and is APPROVED
@@ -40,6 +37,27 @@ export class PurchaseOrdersService {
         }
         if (pr.status !== PRStatus.APPROVED) {
           throw new BadRequestException(`Purchase Request must be in APPROVED status. Current status: ${pr.status}`);
+        }
+      }
+
+      // Validate all items belong to organization
+      if (dto.items && dto.items.length > 0) {
+        const itemIds = dto.items.map(item => item.itemId);
+        const validItems = await this.prisma.item.findMany({
+          where: {
+            id: { in: itemIds },
+            organizationId,
+          },
+          select: { id: true },
+        });
+
+        const validItemIds = new Set(validItems.map(i => i.id));
+        const invalidItems = itemIds.filter(itemId => !validItemIds.has(itemId));
+
+        if (invalidItems.length > 0) {
+          throw new BadRequestException(
+            `The following items do not exist or do not belong to your organization: ${invalidItems.join(', ')}. Please verify item IDs and try again.`
+          );
         }
       }
 
@@ -63,8 +81,7 @@ export class PurchaseOrdersService {
         data: {
           poNumber,
           organizationId,
-          vendorId: dto.vendorId,
-          storeId: dto.storeId,
+          officeId: dto.officeId || null,
           orderedBy: userId,
           prId: dto.prId || null,
           expectedDeliveryDate: dto.expectedDeliveryDate ? new Date(dto.expectedDeliveryDate) : null,
@@ -88,28 +105,31 @@ export class PurchaseOrdersService {
           },
         },
         include: {
-          vendor: true,
-          store: true,
           creator: true,
+          office: true,
           items: { include: { item: true } },
         },
       });
 
       return po;
     } catch (error) {
+      console.error('[PurchaseOrdersService] Error creating PO:', {
+        error: error.message,
+        code: error.code,
+        meta: error.meta,
+        stack: error.stack
+      });
       throw handlePrismaError(error);
     }
   }
 
   async findAll(organizationId: string, query: GetPurchaseOrderDto): Promise<any> {
     try {
-      const { page = 1, limit = 10, prId, vendorId, storeId, status, paymentStatus } = query;
+      const { page = 1, limit = 10, prId, status, paymentStatus } = query;
       const skip = (page - 1) * limit;
 
       const where: any = { organizationId };
       if (prId) where.prId = prId;
-      if (vendorId) where.vendorId = vendorId;
-      if (storeId) where.storeId = storeId;
       if (status) where.status = status;
       if (paymentStatus) where.paymentStatus = paymentStatus;
 
@@ -119,9 +139,9 @@ export class PurchaseOrdersService {
           skip,
           take: limit,
           include: {
-            vendor: true,
-            store: true,
             creator: true,
+            office: true,
+            organization: true,
             items: { include: { item: true } },
             purchaseRequest: true,
           },
@@ -144,9 +164,9 @@ export class PurchaseOrdersService {
       const po = await this.prisma.purchaseOrder.findFirst({
         where: { id, organizationId },
         include: {
-          vendor: true,
-          store: true,
           creator: true,
+          office: true,
+          organization: true,
           items: { include: { item: true } },
           purchaseRequest: true,
           grns: { include: { items: true } },
@@ -180,6 +200,25 @@ export class PurchaseOrdersService {
       // Recalculate amounts if items are being updated
       let updateData: any = { ...dto };
       if (dto.items) {
+        // Validate all items belong to organization
+        const itemIds = dto.items.map((item: any) => item.itemId);
+        const validItems = await this.prisma.item.findMany({
+          where: {
+            id: { in: itemIds },
+            organizationId,
+          },
+          select: { id: true },
+        });
+
+        const validItemIds = new Set(validItems.map(i => i.id));
+        const invalidItems = itemIds.filter(itemId => !validItemIds.has(itemId));
+
+        if (invalidItems.length > 0) {
+          throw new BadRequestException(
+            `The following items do not exist or do not belong to your organization: ${invalidItems.join(', ')}. Please verify item IDs and try again.`
+          );
+        }
+
         const totalAmount = dto.items.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice), 0);
         const taxAmount = dto.taxAmount ? parseFloat(dto.taxAmount) : 0;
         const shippingCost = dto.shippingCost ? parseFloat(dto.shippingCost) : 0;
@@ -207,8 +246,6 @@ export class PurchaseOrdersService {
         where: { id },
         data: updateData,
         include: {
-          vendor: true,
-          store: true,
           creator: true,
           items: { include: { item: true } },
         },
@@ -268,22 +305,6 @@ export class PurchaseOrdersService {
         );
       }
 
-      // Validate vendor belongs to organization
-      const vendor = await this.prisma.vendor.findFirst({
-        where: { id: dto.vendorId, organizationId },
-      });
-      if (!vendor) {
-        throw new BadRequestException('Vendor not found or does not belong to your organization');
-      }
-
-      // Validate store belongs to organization
-      const store = await this.prisma.store.findFirst({
-        where: { id: dto.storeId, organizationId },
-      });
-      if (!store) {
-        throw new BadRequestException('Store not found or does not belong to your organization');
-      }
-
       // Generate PO number
       const lastPO = await this.prisma.purchaseOrder.findFirst({
         where: { organizationId },
@@ -309,8 +330,6 @@ export class PurchaseOrdersService {
           data: {
             poNumber,
             organizationId,
-            vendorId: dto.vendorId,
-            storeId: dto.storeId,
             orderedBy: userId,
             prId: prId,
             expectedDeliveryDate: dto.expectedDeliveryDate ? new Date(dto.expectedDeliveryDate) : null,
@@ -334,8 +353,6 @@ export class PurchaseOrdersService {
             },
           },
           include: {
-            vendor: true,
-            store: true,
             creator: true,
             items: { include: { item: true } },
           },
@@ -368,8 +385,6 @@ export class PurchaseOrdersService {
         where: { id },
         data: { status: POStatus.SUBMITTED },
         include: {
-          vendor: true,
-          store: true,
           items: { include: { item: true } },
         },
       });
@@ -419,8 +434,6 @@ export class PurchaseOrdersService {
         where: { id },
         data: { status: targetStatus as any },
         include: {
-          vendor: true,
-          store: true,
           items: { include: { item: true } },
         },
       });
@@ -448,8 +461,6 @@ export class PurchaseOrdersService {
         where: { id },
         data: { paymentStatus: paymentStatus as any },
         include: {
-          vendor: true,
-          store: true,
           items: { include: { item: true } },
         },
       });

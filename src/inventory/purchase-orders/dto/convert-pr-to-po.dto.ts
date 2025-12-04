@@ -2,17 +2,9 @@ import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 /**
  * DTO for converting a Purchase Request to a Purchase Order
- * This endpoint takes a PR ID and vendor/store selection, then creates and persists the PO
+ * This endpoint takes a PR ID and creates a PO with items from the PR
  */
 export class ConvertPrToPoDto {
-  @IsString()
-  @IsNotEmpty()
-  vendorId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  storeId: string;
-
   @IsOptional()
   @IsString()
   notes?: string;

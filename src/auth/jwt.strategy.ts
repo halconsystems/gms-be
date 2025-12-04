@@ -14,12 +14,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     // Attach user info to request
+    // JWT tokens use 'sub' claim for user ID (standard JWT format)
     // Extract officeId if present in the token payload (some tokens include userOffice or officeId)
     const officeId =
       payload.officeId || (payload.userOffice && payload.userOffice[0]?.officeId);
 
     return {
-      userId: payload.userId,
+      id: payload.sub, // Use 'sub' from JWT (standard subject/user ID claim)
+      userId: payload.sub, // Also provide userId for compatibility
       email: payload.email,
       roleName: payload.roleName,
       organizationId: payload.organizationId || null,

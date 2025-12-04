@@ -322,7 +322,6 @@ export class GrnService {
           purchaseOrder: {
             include: {
               items: true,
-              vendor: true,
             },
           },
           store: {
@@ -786,48 +785,10 @@ export class GrnService {
           ? GRNStatus.RECEIVED
           : GRNStatus.PARTIAL;
 
-        // Step 6: Update GRN status
-        const updatedGrn = await tx.grn.update({
-          where: { id },
-          data: {
-            status: grnNewStatus,
-            totalQuantity: totalAccepted,
-          },
-          include: {
-            items: {
-              include: {
-                item: true,
-                poItem: true,
-              },
-            },
-            purchaseOrder: {
-              include: {
-                items: true,
-              },
-            },
-            store: true,
-            vendor: true,
-            receiver: {
-              select: {
-                id: true,
-                email: true,
-                userName: true,
-              },
-            },
-            inspector: {
-              select: {
-                id: true,
-                email: true,
-                userName: true,
-              },
-            },
-          },
-        });
-
-        // Step 7: Update PurchaseOrder status
+        // Step 6: Update PurchaseOrder status FIRST (before GRN update)
         const poItems = await tx.purchaseOrderItem.findMany({
           where: {
-            poId: grn.purchaseOrder.id,
+            poId: grn.poId,
           },
         });
 
@@ -844,9 +805,27 @@ export class GrnService {
         }
 
         await tx.purchaseOrder.update({
-          where: { id: grn.purchaseOrder.id },
+          where: { id: grn.poId },
           data: {
             status: poStatus,
+          },
+        });
+
+        // Step 7: Update GRN status with minimal includes
+        const updatedGrn = await tx.grn.update({
+          where: { id },
+          data: {
+            status: grnNewStatus,
+            totalQuantity: totalAccepted,
+          },
+          include: {
+            items: {
+              include: {
+                item: true,
+              },
+            },
+            store: true,
+            vendor: true,
           },
         });
 

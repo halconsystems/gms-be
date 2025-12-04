@@ -199,7 +199,6 @@ export class VendorsService {
       const purchaseOrders = await this.prisma.purchaseOrder.findMany({
         where: {
           organizationId,
-          vendorId,
         },
         include: { items: true, creator: true },
         orderBy: { createdAt: 'desc' },

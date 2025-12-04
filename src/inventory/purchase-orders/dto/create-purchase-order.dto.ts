@@ -24,17 +24,13 @@ export class CreatePurchaseOrderItemDto {
 }
 
 export class CreatePurchaseOrderDto {
-  @IsNotEmpty()
-  @IsUUID()
-  vendorId: string;
-
-  @IsNotEmpty()
-  @IsUUID()
-  storeId: string;
-
   @IsOptional()
   @IsUUID()
   prId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  officeId?: string;
 
   @IsOptional()
   @IsDateString()

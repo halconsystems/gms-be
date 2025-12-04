@@ -9,16 +9,6 @@ export class GetPurchaseOrderDto extends PaginationDto {
   @IsUUID()
   prId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by vendor ID' })
-  @IsOptional()
-  @IsUUID()
-  vendorId?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by store ID' })
-  @IsOptional()
-  @IsUUID()
-  storeId?: string;
-
   @ApiPropertyOptional({ description: 'Filter by status (DRAFT, SUBMITTED, CONFIRMED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED)' })
   @IsOptional()
   @IsIn(Object.values(POStatus))

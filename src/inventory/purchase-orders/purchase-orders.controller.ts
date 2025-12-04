@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, UseGuards, Query, Put, Delete, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, UseGuards, Query, Put, Delete, Req, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.decorator';
@@ -25,7 +25,13 @@ export class PurchaseOrdersController {
     @GetOrganizationId() organizationId: string,
     @Req() req: any,
   ) {
-    const userId = req.user?.id || organizationId;
+    // JWT strategy returns both 'id' and 'userId' for compatibility
+    const userId = req.user?.id || req.user?.userId;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in JWT token. Please ensure you are properly authenticated.');
+    }
+    
     return this.poService.create(createPoDto, organizationId, userId);
   }
 

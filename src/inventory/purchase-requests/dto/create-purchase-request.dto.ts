@@ -35,6 +35,11 @@ export class CreatePurchaseRequestDto {
   @IsUUID()
   storeId?: string;
 
+  @ApiPropertyOptional({ description: 'Office ID (auto-filled from user context if not provided)' })
+  @IsOptional()
+  @IsUUID()
+  officeId?: string;
+
   @ApiPropertyOptional({ description: 'Required date for the purchase (ISO 8601 format: YYYY-MM-DD or full ISO string, auto-filled with current date if not provided)' })
   @IsOptional()
   @IsISO8601({ strict: false })
