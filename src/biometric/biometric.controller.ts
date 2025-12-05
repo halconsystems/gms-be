@@ -41,7 +41,7 @@ export class BiometricController {
   @ApiOperation({
     summary: 'Capture fingerprint from local USB device',
     description:
-      'Proxies request to local agent service. Agent location determined by X-Agent-Ip header or defaults to localhost:8765.',
+      'Proxies request to local agent service. Agent IP is determined from office configuration stored in database.',
   })
   @ApiResponse({
     status: 200,
@@ -57,8 +57,18 @@ export class BiometricController {
   })
   async captureFingerprint(
     @Body() dto: CaptureFingerprintDto,
-    @Headers('x-agent-ip') agentIp?: string,
+    @Req() req: any,
   ) {
+    // Get office ID from user context
+    const officeId = req.user?.currentOffice?.id;
+    let agentIp: string | undefined;
+
+    if (officeId) {
+      // Fetch agent IP from database for this office
+      const agentConfig = await this.configService.getAgentConfig(officeId);
+      agentIp = agentConfig?.agentIp;
+    }
+
     return await this.biometric.captureFingerprint(dto, agentIp);
   }
 
@@ -85,17 +95,16 @@ export class BiometricController {
   @ApiOperation({
     summary: 'Check local agent service health',
     description:
-      'Returns health status of the fingerprint agent. Agent location determined by X-Agent-Ip header or defaults to localhost:8765. Also returns the client IP for auto-detection.',
+      'Returns health status of the fingerprint agent. Agent IP is determined from office configuration stored in database.',
   })
   @ApiResponse({
     status: 200,
     description: 'Agent health status retrieved',
   })
   async getAgentHealth(
-    @Headers('x-agent-ip') agentIp?: string,
+    @Req() req: any,
     @Headers('x-real-ip') realIp?: string,
     @Headers('cf-connecting-ip') cfIp?: string,
-    @Req() req?: any,
   ) {
     // Extract client IP for auto-detection on frontend
     // Priority: x-real-ip > cf-connecting-ip > x-forwarded-for > remoteAddress
@@ -109,6 +118,16 @@ export class BiometricController {
       clientIp = req.headers['x-forwarded-for'].split(',')[0]?.trim();
     } else if (req.connection?.remoteAddress) {
       clientIp = req.connection.remoteAddress;
+    }
+    
+    // Get office ID from user context
+    const officeId = req.user?.currentOffice?.id;
+    let agentIp: string | undefined;
+
+    if (officeId) {
+      // Fetch agent IP from database for this office
+      const agentConfig = await this.configService.getAgentConfig(officeId);
+      agentIp = agentConfig?.agentIp;
     }
     
     const healthStatus = await this.biometric.checkAgentHealth(agentIp);

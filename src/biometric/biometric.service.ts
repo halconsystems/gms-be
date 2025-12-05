@@ -73,10 +73,22 @@ export class BiometricService {
 
   /**
    * Capture fingerprint from local USB device via agent
+   * 
+   * Agent IP Resolution:
+   * 1. Use agentIp parameter from database lookup (FingerprintAgentConfig)
+   * 2. If not provided, use FINGERPRINT_AGENT_URL environment variable
+   * 3. If not set, fallback to http://localhost:8765
    */
   async captureFingerprint(dto: CaptureFingerprintDto, agentIp?: string) {
     // Build agent URL from provided IP or use default
     const agentUrl = this.buildAgentUrl(agentIp);
+    
+    // Log agent IP source for debugging
+    if (agentIp) {
+      this.logger.log(`[AGENT IP SOURCE] From database/config: ${agentIp}`);
+    } else {
+      this.logger.log(`[AGENT IP SOURCE] Using default: ${this.AGENT_BASE_URL}`);
+    }
     
     // Debug log to inspect raw DTO values from global pipe
     this.logger.debug('Raw DTO before normalization: ' + JSON.stringify(dto));
@@ -212,12 +224,24 @@ export class BiometricService {
    * Important: Agent returns HTTP 200 when healthy, HTTP 503 when degraded/unhealthy
    * We must accept both responses as valid (not treat 503 as error)
    * 
-   * @param agentIp Optional agent IP address (e.g., 192.168.1.50)
+   * Agent IP Resolution:
+   * 1. Use agentIp parameter from database lookup (FingerprintAgentConfig)
+   * 2. If not provided, use FINGERPRINT_AGENT_URL environment variable
+   * 3. If not set, fallback to http://localhost:8765
+   * 
+   * @param agentIp Optional agent IP address fetched from database (e.g., 192.168.1.50)
    *                If not provided, uses default from config
    */
   async checkAgentHealth(agentIp?: string) {
     // Build agent URL from provided IP or use default
     const agentUrl = this.buildAgentUrl(agentIp);
+    
+    // Log agent IP source for debugging
+    if (agentIp) {
+      this.logger.log(`[AGENT IP SOURCE] From database/config: ${agentIp}`);
+    } else {
+      this.logger.log(`[AGENT IP SOURCE] Using default: ${this.AGENT_BASE_URL}`);
+    }
     
     this.logger.log('');
     this.logger.log('█'.repeat(60));
