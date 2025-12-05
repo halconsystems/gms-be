@@ -22,6 +22,7 @@ model User {
   organizations Organization? @relation("UserOrganization")
   userOffice    UserOffice[]
   userRoles     UserRole[]    @relation("UserUserRoles")
+  fingerprintAgent FingerprintAgentConfig?
   
   // Inventory Relations
   purchaseRequests          PurchaseRequest[]     @relation("PurchaseRequestRequester")
@@ -134,7 +135,6 @@ model Office {
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userOffice       UserOffice[]
   location         Location[]
-  fingerprintAgent FingerprintAgentConfig?
   
   // Inventory Relations
   stores           Store[]        @relation("OfficeStores")
@@ -144,16 +144,16 @@ model Office {
 
 model FingerprintAgentConfig {
   id               String    @id @default(uuid()) @db.Uuid
-  officeId         String    @unique @db.Uuid
+  userId           String    @unique @db.Uuid
   agentIp          String    // e.g., "192.168.1.50"
   agentPort        Int       @default(8765)
   configuredAt     DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   updatedByUserId  String?   @db.Uuid
   isActive         Boolean   @default(true)
-  office           Office    @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([officeId])
+  @@index([userId])
 }
 
 model OrganizationBankAccount {

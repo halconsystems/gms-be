@@ -59,13 +59,13 @@ export class BiometricController {
     @Body() dto: CaptureFingerprintDto,
     @Req() req: any,
   ) {
-    // Get office ID from user context
-    const officeId = req.user?.currentOffice?.id;
+    // Get user ID from user context
+    const userId = req.user?.id;
     let agentIp: string | undefined;
 
-    if (officeId) {
-      // Fetch agent IP from database for this office
-      const agentConfig = await this.configService.getAgentConfig(officeId);
+    if (userId) {
+      // Fetch agent IP from database for this user
+      const agentConfig = await this.configService.getAgentConfig(userId);
       agentIp = agentConfig?.agentIp;
     }
 
@@ -95,7 +95,7 @@ export class BiometricController {
   @ApiOperation({
     summary: 'Check local agent service health',
     description:
-      'Returns health status of the fingerprint agent. Agent IP is determined from office configuration stored in database.',
+      'Returns health status of the fingerprint agent. Agent IP is determined from user configuration stored in database.',
   })
   @ApiResponse({
     status: 200,
@@ -166,9 +166,9 @@ export class BiometricController {
   @Post('agent-config')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Save or update fingerprint agent configuration for an office',
+    summary: 'Save or update fingerprint agent configuration for a user',
     description:
-      'Stores the IP address and port of the fingerprint agent for a specific office. Each office can have its own agent.',
+      'Stores the IP address and port of the fingerprint agent for a specific user. Each user can have their own agent configuration.',
   })
   @ApiResponse({
     status: 201,
@@ -179,16 +179,16 @@ export class BiometricController {
     description: 'Invalid IP format or missing required fields',
   })
   @ApiNotFoundResponse({
-    description: 'Office not found',
+    description: 'User not found',
   })
   async saveAgentConfig(@Body() dto: SaveAgentConfigDto) {
     return await this.configService.saveAgentConfig(dto);
   }
 
-  @Get('agent-config/:officeId')
+  @Get('agent-config/:userId')
   @ApiOperation({
-    summary: 'Get fingerprint agent configuration for an office',
-    description: 'Retrieves the stored agent IP and port configuration for a specific office.',
+    summary: 'Get fingerprint agent configuration for a user',
+    description: 'Retrieves the stored agent IP and port configuration for a specific user.',
   })
   @ApiResponse({
     status: 200,
@@ -196,18 +196,18 @@ export class BiometricController {
     type: AgentConfigResponseDto,
   })
   @ApiNotFoundResponse({
-    description: 'Office not found or no configuration exists',
+    description: 'User not found or no configuration exists',
   })
-  async getAgentConfig(@Param('officeId') officeId: string) {
-    const config = await this.configService.getAgentConfig(officeId);
-    return config || { message: 'No agent configuration found for this office' };
+  async getAgentConfig(@Param('userId') userId: string) {
+    const config = await this.configService.getAgentConfig(userId);
+    return config || { message: 'No agent configuration found for this user' };
   }
 
-  @Put('agent-config/:officeId')
+  @Put('agent-config/:userId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Update fingerprint agent configuration for an office',
-    description: 'Updates the agent IP and/or port for a specific office.',
+    summary: 'Update fingerprint agent configuration for a user',
+    description: 'Updates the agent IP and/or port for a specific user.',
   })
   @ApiResponse({
     status: 200,
@@ -218,24 +218,24 @@ export class BiometricController {
     description: 'Invalid IP format',
   })
   @ApiNotFoundResponse({
-    description: 'Office not found',
+    description: 'User not found',
   })
   async updateAgentConfig(
-    @Param('officeId') officeId: string,
+    @Param('userId') userId: string,
     @Body() dto: SaveAgentConfigDto,
   ) {
-    // Override officeId from path parameter
+    // Override userId from path parameter
     return await this.configService.saveAgentConfig({
       ...dto,
-      officeId,
+      userId,
     });
   }
 
-  @Delete('agent-config/:officeId')
+  @Delete('agent-config/:userId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Delete fingerprint agent configuration for an office',
-    description: 'Removes the stored agent configuration for a specific office.',
+    summary: 'Delete fingerprint agent configuration for a user',
+    description: 'Removes the stored agent configuration for a specific user.',
   })
   @ApiResponse({
     status: 200,
@@ -243,9 +243,9 @@ export class BiometricController {
     type: AgentConfigDeleteResponseDto,
   })
   @ApiNotFoundResponse({
-    description: 'Office not found or configuration does not exist',
+    description: 'User not found or configuration does not exist',
   })
-  async deleteAgentConfig(@Param('officeId') officeId: string) {
-    return await this.configService.deleteAgentConfig(officeId);
+  async deleteAgentConfig(@Param('userId') userId: string) {
+    return await this.configService.deleteAgentConfig(userId);
   }
 }

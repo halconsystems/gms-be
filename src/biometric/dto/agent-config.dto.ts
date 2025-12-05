@@ -3,11 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class SaveAgentConfigDto {
   @ApiProperty({
-    description: 'Office ID that this agent config belongs to',
+    description: 'User ID that this agent config belongs to',
     example: '550e8400-e29b-41d4-a716-446655440000'
   })
   @IsString()
-  officeId: string;
+  userId: string;
 
   @ApiProperty({
     description: 'IP address of the fingerprint agent',
@@ -36,10 +36,10 @@ export class AgentConfigResponseDto {
   id: string;
 
   @ApiProperty({
-    description: 'Office ID',
+    description: 'User ID',
     example: '550e8400-e29b-41d4-a716-446655440000'
   })
-  officeId: string;
+  userId: string;
 
   @ApiProperty({
     description: 'Agent IP address',

@@ -15,20 +15,20 @@ export class BiometricConfigService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Save or update fingerprint agent configuration for an office
+   * Save or update fingerprint agent configuration for a user
    */
   async saveAgentConfig(dto: SaveAgentConfigDto): Promise<AgentConfigResponseDto> {
     this.logger.log(
-      `Saving agent config for office ${dto.officeId}: ${dto.agentIp}:${dto.agentPort || 8765}`,
+      `Saving agent config for user ${dto.userId}: ${dto.agentIp}:${dto.agentPort || 8765}`,
     );
 
-    // Validate that office exists
-    const office = await this.prisma.office.findUnique({
-      where: { id: dto.officeId },
+    // Validate that user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
     });
 
-    if (!office) {
-      throw new NotFoundException(`Office with ID ${dto.officeId} not found`);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${dto.userId} not found`);
     }
 
     // Validate IP format
@@ -42,47 +42,47 @@ export class BiometricConfigService {
 
     // Upsert (update if exists, create if not)
     const config = await this.prisma.fingerprintAgentConfig.upsert({
-      where: { officeId: dto.officeId },
+      where: { userId: dto.userId },
       update: {
         agentIp: dto.agentIp,
         agentPort: port,
         updatedAt: new Date(),
       },
       create: {
-        officeId: dto.officeId,
+        userId: dto.userId,
         agentIp: dto.agentIp,
         agentPort: port,
       },
     });
 
     this.logger.log(
-      `Agent config saved successfully for office ${dto.officeId}`,
+      `Agent config saved successfully for user ${dto.userId}`,
     );
 
     return this.mapToResponseDto(config);
   }
 
   /**
-   * Get agent configuration for an office
+   * Get agent configuration for a user
    */
-  async getAgentConfig(officeId: string): Promise<AgentConfigResponseDto | null> {
-    this.logger.log(`Fetching agent config for office ${officeId}`);
+  async getAgentConfig(userId: string): Promise<AgentConfigResponseDto | null> {
+    this.logger.log(`Fetching agent config for user ${userId}`);
 
-    // Validate that office exists
-    const office = await this.prisma.office.findUnique({
-      where: { id: officeId },
+    // Validate that user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (!office) {
-      throw new NotFoundException(`Office with ID ${officeId} not found`);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
     const config = await this.prisma.fingerprintAgentConfig.findUnique({
-      where: { officeId },
+      where: { userId },
     });
 
     if (!config) {
-      this.logger.debug(`No agent config found for office ${officeId}`);
+      this.logger.debug(`No agent config found for user ${userId}`);
       return null;
     }
 
@@ -90,48 +90,48 @@ export class BiometricConfigService {
   }
 
   /**
-   * Delete agent configuration for an office
+   * Delete agent configuration for a user
    */
-  async deleteAgentConfig(officeId: string): Promise<{ message: string; configId: string }> {
-    this.logger.log(`Deleting agent config for office ${officeId}`);
+  async deleteAgentConfig(userId: string): Promise<{ message: string; configId: string }> {
+    this.logger.log(`Deleting agent config for user ${userId}`);
 
-    // Validate that office exists
-    const office = await this.prisma.office.findUnique({
-      where: { id: officeId },
+    // Validate that user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (!office) {
-      throw new NotFoundException(`Office with ID ${officeId} not found`);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
     const config = await this.prisma.fingerprintAgentConfig.findUnique({
-      where: { officeId },
+      where: { userId },
     });
 
     if (!config) {
       throw new NotFoundException(
-        `No agent config found for office ${officeId}`,
+        `No agent config found for user ${userId}`,
       );
     }
 
     await this.prisma.fingerprintAgentConfig.delete({
-      where: { officeId },
+      where: { userId },
     });
 
-    this.logger.log(`Agent config deleted for office ${officeId}`);
+    this.logger.log(`Agent config deleted for user ${userId}`);
 
     return {
-      message: `Agent configuration deleted for office ${officeId}`,
+      message: `Agent configuration deleted for user ${userId}`,
       configId: config.id,
     };
   }
 
   /**
-   * Get agent URL for an office
+   * Get agent URL for a user
    * Returns the full URL: http://ip:port
    */
-  async getAgentUrl(officeId: string): Promise<string | null> {
-    const config = await this.getAgentConfig(officeId);
+  async getAgentUrl(userId: string): Promise<string | null> {
+    const config = await this.getAgentConfig(userId);
     if (!config) {
       return null;
     }
@@ -153,7 +153,7 @@ export class BiometricConfigService {
   private mapToResponseDto(config: any): AgentConfigResponseDto {
     return {
       id: config.id,
-      officeId: config.officeId,
+      userId: config.userId,
       agentIp: config.agentIp,
       agentPort: config.agentPort,
       configuredAt: config.configuredAt,
