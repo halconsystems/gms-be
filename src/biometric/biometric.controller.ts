@@ -120,13 +120,13 @@ export class BiometricController {
       clientIp = req.connection.remoteAddress;
     }
     
-    // Get office ID from user context
-    const officeId = req.user?.currentOffice?.id;
+    // Get user ID from user context
+    const userId = req.user?.id;
     let agentIp: string | undefined;
 
-    if (officeId) {
-      // Fetch agent IP from database for this office
-      const agentConfig = await this.configService.getAgentConfig(officeId);
+    if (userId) {
+      // Fetch agent IP from database for this user
+      const agentConfig = await this.configService.getAgentConfig(userId);
       agentIp = agentConfig?.agentIp;
     }
     
