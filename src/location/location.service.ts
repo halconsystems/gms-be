@@ -9,6 +9,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { shouldFilterByOffice, getSupervisorLocationFilter } from 'src/common/utils/office-filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLocationDto } from './dto/create-location.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
 import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
 import { generateRandomNumber } from 'src/common/utils/random-num-generator';
 
@@ -42,6 +43,7 @@ export class LocationService {
         data: {
           organizationId: organizationId,
           clientId: dto.clientId,
+          officeId: dto.officeId,
           locationName: dto.locationName,
           createdLocationId: generatedId.toString(),
           address: dto.address,
@@ -113,8 +115,8 @@ export class LocationService {
 
     // Use findUnique only when we are querying by id alone (no office filter).
     const location = filter.shouldFilter && filter.officeId
-      ? await this.prisma.location.findFirst({ where, include: { requestedGuards: { include: { finances: true } } } })
-      : await this.prisma.location.findUnique({ where: { id }, include: { requestedGuards: { include: { finances: true } } } });
+      ? await this.prisma.location.findFirst({ where, include: { requestedGuards: { include: { finances: true } }, office: true, client: true, locationType: true } })
+      : await this.prisma.location.findUnique({ where: { id }, include: { requestedGuards: { include: { finances: true } }, office: true, client: true, locationType: true } });
 
     if (!location) {
       throw new NotFoundException('Location not found');
@@ -274,12 +276,13 @@ export class LocationService {
 
   async update(
     id: string,
-    dto: Partial<CreateLocationDto>,
+    dto: UpdateLocationDto,
     organizationId: string,
   ) {
     try {
       const updateData: any = {
         ...(dto.clientId && { clientId: dto.clientId }),
+        ...(dto.officeId && { officeId: dto.officeId }),
         ...(dto.locationName && { locationName: dto.locationName }),
         ...(dto.createdLocationId && {
           createdLocationId: dto.createdLocationId,
@@ -316,23 +319,31 @@ export class LocationService {
       if (dto.requestedGuards) {
         updateData.requestedGuards = {
           deleteMany: {},
-          create: dto.requestedGuards.map((guard) => ({
-            guardCategoryId: guard.guardCategoryId,
-            shiftId: guard.shiftId,
-            quantity: guard.quantity,
-            gazettedHoliday: guard.gazettedHoliday,
-            chargesPerMonth: guard.chargesPerMonth,
-            overtimePerHour: guard.overtimePerHour,
-            allowance: guard.allowance,
-            finances: {
-              create: {
-                gazettedHoliday: guard.finances.gazettedHoliday,
-                salaryPerMonth: guard.finances.salaryPerMonth,
-                overtimePerHour: guard.finances.overtimePerHour,
-                allowance: guard.finances.allowance,
-              },
-            },
-          })),
+          create: dto.requestedGuards.map((guard) => {
+            const guardData: any = {
+              guardCategoryId: guard.guardCategoryId,
+              shiftId: guard.shiftId,
+              quantity: guard.quantity,
+              gazettedHoliday: guard.gazettedHoliday,
+              chargesPerMonth: guard.chargesPerMonth,
+              overtimePerHour: guard.overtimePerHour,
+              allowance: guard.allowance,
+            };
+
+            // Only add finances if it's provided
+            if (guard.finances) {
+              guardData.finances = {
+                create: {
+                  gazettedHoliday: guard.finances.gazettedHoliday,
+                  salaryPerMonth: guard.finances.salaryPerMonth,
+                  overtimePerHour: guard.finances.overtimePerHour,
+                  allowance: guard.finances.allowance,
+                },
+              };
+            }
+
+            return guardData;
+          }),
         };
       }
 
@@ -343,6 +354,9 @@ export class LocationService {
         },
         data: updateData,
         include: {
+          office: true,
+          client: true,
+          locationType: true,
           requestedGuards: {
             include: {
               finances: true,

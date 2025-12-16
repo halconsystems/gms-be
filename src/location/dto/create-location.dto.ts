@@ -104,10 +104,12 @@ export class CreateLocationTaxDto {
 export class CreateLocationDto {
   @ApiProperty()
   @IsUUID()
+  @IsNotEmpty()
   clientId: string;
 
   @ApiProperty()
   @IsUUID()
+  @IsNotEmpty()
   officeId: string;
 
   @ApiProperty()
@@ -143,6 +145,7 @@ export class CreateLocationDto {
   @ApiProperty()
   @IsOptional()
   @IsUUID()
+  @IsNotEmpty({ message: 'Location Type ID must not be empty if provided' })
   locationTypeId: string;
 
   @ApiProperty()
