@@ -172,10 +172,16 @@ export class AuthService {
 
       // Get features from organization
       let features: string[] = [];
+      let subFeatures: { [key: string]: string[] } = {};
       if (organization?.organizationFeatures) {
         features = organization.organizationFeatures.map(
           (of) => of.feature.name,
         );
+      }
+      
+      // Get sub-features from organization if available
+      if (organization?.subFeaturesData) {
+        subFeatures = organization.subFeaturesData as { [key: string]: string[] };
       }
 
       console.log('Features loaded for user:', {
@@ -249,6 +255,7 @@ export class AuthService {
           organizationId,
           organizationName: organization?.organizationName ?? null,
           features,
+          subFeatures,
           roleName,
           isSuperAdmin,
           isSupervisor,

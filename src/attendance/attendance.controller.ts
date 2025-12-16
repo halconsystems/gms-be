@@ -145,6 +145,7 @@ export class AttendanceController {
     RolesEnum.manager,
     RolesEnum.supervisor,
     RolesEnum.guardSupervisor,
+    RolesEnum.staff,
   )
   @ResponseMessage('Guard Attendance fetched successfully')
   findAll(@GetOrganizationId() organizationId: string, @Req() req) {

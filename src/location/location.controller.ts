@@ -45,7 +45,7 @@ export class LocationController {
   @Get('/by-organization')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Location fetched successfully')
   findAllByOrganizationId(@GetOrganizationId() organizationId: string, @Req() req) {
     return this.locationService.findByOrganizationId(organizationId, req.user);

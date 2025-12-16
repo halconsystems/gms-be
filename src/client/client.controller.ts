@@ -99,7 +99,7 @@ export class ClientController {
   @Get('/by-organization')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Client fetched successfully')
   findAllByOrganizationId(@GetOrganizationId() organizationId: string, @Req() req) {
     return this.clientService.findClientByOrganizationId(

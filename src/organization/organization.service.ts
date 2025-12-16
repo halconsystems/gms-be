@@ -125,6 +125,7 @@ export class OrganizationService {
           const organization = await tx.organization.create({
             data: {
               ...orgData,
+              subFeaturesData: dto.subFeatures || {},
               organizationFeatures: {
                 create: features.map((feature) => ({
                   featureId: feature.id,
@@ -170,7 +171,7 @@ export class OrganizationService {
           if (!userWithRoles)
             throw new NotFoundException('User not found after creation');
 
-          // Format response
+          // Format response with subFeatures
           return {
             data: {
               user: {
@@ -182,12 +183,14 @@ export class OrganizationService {
                   'organizationAdmin',
                 organizationId: organization.id,
                 features: dto.features,
+                subFeatures: dto.subFeatures || {},
                 isSuperAdmin: false,
               },
               organization: {
                 id: organization.id,
                 name: organization.organizationName,
                 features: dto.features,
+                subFeatures: dto.subFeatures || {},
               },
             },
           };

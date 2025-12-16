@@ -89,6 +89,7 @@ model Organization {
   phoneNumber1         String
   phoneNumber2         String?
   province             String
+  subFeaturesData      Json?                     @default("{}")
   client               Client[]
   employee             Employee[]
   guard                Guard[]

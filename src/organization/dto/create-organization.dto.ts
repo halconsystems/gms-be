@@ -6,6 +6,7 @@ import {
   MinLength,
   IsArray,
   ArrayNotEmpty,
+  IsObject,
 } from 'class-validator';
 import { CreateOfficeDto } from './create-office-dto';
 
@@ -66,4 +67,10 @@ export class CreateOrganizationDto {
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
   features: string[];
+
+  @IsOptional()
+  @IsObject()
+  subFeatures?: {
+    [featureName: string]: string[];
+  };
 }
