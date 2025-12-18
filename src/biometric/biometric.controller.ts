@@ -58,17 +58,29 @@ export class BiometricController {
   async captureFingerprint(
     @Body() dto: CaptureFingerprintDto,
     @Req() req: any,
+    @Headers('x-agent-ip') xAgentIp?: string,
   ) {
-    // Get user ID from user context
-    const userId = req.user?.id;
     let agentIp: string | undefined;
 
-    if (userId) {
-      // Fetch agent IP from database for this user
-      const agentConfig = await this.configService.getAgentConfig(userId);
-      agentIp = agentConfig?.agentIp;
+    // Comment 2: Implement fallback chain:
+    // 1. First try X-Agent-Ip header (explicit agent IP from request)
+    // 2. Then try user-config lookup from database
+    // 3. Finally fall back to FINGERPRINT_AGENT_URL env var or localhost:8765
+    
+    if (xAgentIp) {
+      // Header explicitly specifies agent IP
+      agentIp = xAgentIp.trim();
+    } else {
+      // Get user ID from user context for database lookup
+      const userId = req.user?.id;
+      if (userId) {
+        // Fetch agent IP from database for this user
+        const agentConfig = await this.configService.getAgentConfig(userId);
+        agentIp = agentConfig?.agentIp;
+      }
     }
 
+    // Pass resolved IP to biometric service (may still be undefined for localhost fallback)
     return await this.biometric.captureFingerprint(dto, agentIp);
   }
 

@@ -265,4 +265,28 @@ export class PayrollController {
       bankId,
     );
   }
+
+  @Post('/lock/final-payroll')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
+  @ResponseMessage('Final payroll locked successfully')
+  lockFinalPayroll(
+    @GetOrganizationId() organizationId: string,
+    @Body() dto: { locationPayrollDurationId: string }
+  ) {
+    return this.payrollService.lockFinalPayroll(dto.locationPayrollDurationId, organizationId);
+  }
+
+  @Patch('/update/guard-allowance/:id')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
+  @ResponseMessage('Guard allowance updated successfully')
+  updateGuardAllowance(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateGuardAllowanceDto>
+  ) {
+    return this.payrollService.updateGuardAllowance(id, dto);
+  }
 }

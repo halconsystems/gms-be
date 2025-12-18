@@ -82,79 +82,79 @@ export class PayrollService {
       }
 
       // guards attendance constraint
-      // const guards = await this.prisma.guard.findMany({
-      //     where : {
-      //         // officeId: officeId || null,
-      //         organizationId : organizationId,
-      //         assignedGuard: {
-      //             some: {
-      //                 locationId : dto.locationId,
-      //             },
-      //         },
-      //     },
-      //     select: {
-      //         id: true,
-      //         fullName: true,
-      //         serviceNumber: true,
-      //         assignedGuard: {
-      //         where : {
-      //             locationId : dto.locationId,
-      //         },
-      //         select: {
-      //             id: true,
-      //             deploymentDate: true,
-      //             deploymentTill: true,
+      const guards = await this.prisma.guard.findMany({
+          where : {
+              // officeId: officeId || null,
+              organizationId : organizationId,
+              assignedGuard: {
+                  some: {
+                      locationId : dto.locationId,
+                  },
+              },
+          },
+          select: {
+              id: true,
+              fullName: true,
+              serviceNumber: true,
+              assignedGuard: {
+              where : {
+                  locationId : dto.locationId,
+              },
+              select: {
+                  id: true,
+                  deploymentDate: true,
+                  deploymentTill: true,
 
-      //         },
-      //         },
-      //         guardsAttendance: {
-      //         where: {
-      //             date: {
-      //                 gte: dto.startDate,
-      //                 lt: dto.endDate,
-      //             },
-      //             },
-      //         },
-      //     },
-      // });
+              },
+              },
+              guardsAttendance: {
+              where: {
+                  date: {
+                      gte: dto.startDate,
+                      lte: dto.endDate,
+                  },
+                  },
+              },
+          },
+      });
 
-      // const today = new Date();
+      const today = new Date();
 
-      // const completeAttendanceGuards = guards.map(guard => {
-      // const assigned = guard.assignedGuard[0];
+      const completeAttendanceGuards = guards.map(guard => {
+      const assigned = guard.assignedGuard[0];
 
-      // const deploymentStart = new Date(assigned.deploymentDate);
-      // const deploymentEnd = assigned.deploymentTill ? new Date(assigned.deploymentTill) : today;
+      const deploymentStart = new Date(assigned.deploymentDate);
+      const deploymentEnd = assigned.deploymentTill ? new Date(assigned.deploymentTill) : today;
 
-      // const effectiveDeploymentStart = max([deploymentStart, dto.startDate]);
-      // const effectiveDeploymentEnd = min([deploymentEnd, dto.endDate]);
+      const effectiveDeploymentStart = max([deploymentStart, dto.startDate]);
+      const effectiveDeploymentEnd = min([deploymentEnd, dto.endDate]);
 
-      // const expectedAttendanceDays = differenceInCalendarDays(
-      //     effectiveDeploymentEnd,
-      //     effectiveDeploymentStart
-      // ) + 1;
+      const expectedAttendanceDays = differenceInCalendarDays(
+          effectiveDeploymentEnd,
+          effectiveDeploymentStart
+      ) + 1;
 
-      // const actualAttendanceDays = guard.guardsAttendance.length;
+      const actualAttendanceDays = guard.guardsAttendance.length;
 
-      // const attendanceComplete = expectedAttendanceDays === actualAttendanceDays;
+      const attendanceComplete = expectedAttendanceDays === actualAttendanceDays;
 
-      // return {
-      //     id: guard.id,
-      //     fullName : guard.fullName,
-      //     serviceNumber : guard.serviceNumber,
-      //     expectedAttendanceDays,
-      //     actualAttendanceDays,
-      //     attendanceComplete,
-      // };
+      return {
+          id: guard.id,
+          fullName : guard.fullName,
+          serviceNumber : guard.serviceNumber,
+          expectedAttendanceDays,
+          actualAttendanceDays,
+          attendanceComplete,
+      };
 
-      // });
-      // const incompleteGuards = completeAttendanceGuards.filter(g => !g.attendanceComplete);
-      // if (incompleteGuards.length > 0) {
-      //     throw new ForbiddenException({
-      //         message: `${incompleteGuards.length} guard(s) have incomplete attendance.`,
-      //         guards: incompleteGuards[0],
-      //     });
-      // }
+      });
+      const incompleteGuards = completeAttendanceGuards.filter(g => !g.attendanceComplete);
+      if (incompleteGuards.length > 0) {
+          throw new ForbiddenException({
+              message: `${incompleteGuards.length} guard(s) have incomplete attendance.`,
+              guards: incompleteGuards[0],
+          });
+      }
 
       const payrollDuration = await this.prisma.locationPayRollDuration.create({
         data: {
@@ -399,18 +399,19 @@ export class PayrollService {
     organizationId: string,
   ) {
     try {
-      dtoList.forEach(async (dto) => {
+      // Use for...of to properly await async operations
+      for (const dto of dtoList) {
         const guard = await this.prisma.guard.findUnique({
           where: { id: dto.guardId, organizationId: organizationId },
         });
-        if (!guard) throw new NotFoundException('Guard Not Found');
+        if (!guard) throw new NotFoundException(`Guard with ID ${dto.guardId} not found`);
 
         // const requestedGuard = await this.prisma.requestedGuard.findUnique({ where : { id  : dto.requestedGuardId, assignedGuard : {
         //     // guardId : dto.guardId
         //     // every
         // } }});
         // if(!requestedGuard) throw new NotFoundException("Incorrect Assigned guard Not Found");
-      });
+      }
 
       const createdAllowances =
         await this.prisma.guardAllowances.createManyAndReturn({
@@ -1313,6 +1314,63 @@ export class PayrollService {
       });
 
       return result;
+    } catch (error) {
+      handlePrismaError(error);
+    }
+  }
+
+  async lockFinalPayroll(locationPayrollDurationId: string, organizationId: string) {
+    try {
+      // Verify the payroll duration exists and belongs to organization
+      const payrollDuration = await this.prisma.locationPayRollDuration.findFirst({
+        where: {
+          id: locationPayrollDurationId,
+          location: { organizationId: organizationId }
+        },
+        include: { location: true }
+      });
+
+      if (!payrollDuration) {
+        throw new NotFoundException('Payroll duration not found');
+      }
+
+      // Check if already locked
+      if (payrollDuration.isFinalLocked) {
+        throw new BadRequestException('Payroll is already locked');
+      }
+
+      // Verify all required steps are completed:
+      // 1. Attendance is locked (already checked by existence)
+      // 2. Allowances are set
+      const allowancesCount = await this.prisma.guardAllowances.count({
+        where: { locationPayrollDurationId: locationPayrollDurationId }
+      });
+
+      if (allowancesCount === 0) {
+        throw new ForbiddenException('Cannot lock payroll: Allowances must be set first');
+      }
+
+      // Update to mark as final locked
+      const updated = await this.prisma.locationPayRollDuration.update({
+        where: { id: locationPayrollDurationId },
+        data: {
+          isFinalLocked: true,
+          finalLockedAt: new Date()
+        }
+      });
+
+      return updated;
+    } catch (error) {
+      handlePrismaError(error);
+    }
+  }
+
+  async updateGuardAllowance(id: string, dto: Partial<CreateGuardAllowanceDto>) {
+    try {
+      return await this.prisma.guardAllowances.update({
+        where: { id },
+        data: dto
+      });
     } catch (error) {
       handlePrismaError(error);
     }
