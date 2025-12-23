@@ -75,17 +75,17 @@ export class BiometricService {
    * Capture fingerprint from local USB device via agent
    * 
    * Agent IP Resolution:
-   * 1. Use agentIp parameter from database lookup (FingerprintAgentConfig)
+   * 1. Use agentIp and agentPort parameters from database lookup (FingerprintAgentConfig)
    * 2. If not provided, use FINGERPRINT_AGENT_URL environment variable
-   * 3. If not set, fallback to http://localhost:8765
+   * 3. If not set, fallback to http://localhost:9001
    */
-  async captureFingerprint(dto: CaptureFingerprintDto, agentIp?: string) {
-    // Build agent URL from provided IP or use default
-    const agentUrl = this.buildAgentUrl(agentIp);
+  async captureFingerprint(dto: CaptureFingerprintDto, agentIp?: string, agentPort?: number) {
+    // Build agent URL from provided IP and port or use default
+    const agentUrl = this.buildAgentUrl(agentIp, agentPort);
     
     // Log agent IP source for debugging
     if (agentIp) {
-      this.logger.log(`[AGENT IP SOURCE] From database/config: ${agentIp}`);
+      this.logger.log(`[AGENT IP SOURCE] From database/config: ${agentIp}:${agentPort || 9001}`);
     } else {
       this.logger.log(`[AGENT IP SOURCE] Using default: ${this.AGENT_BASE_URL}`);
     }
@@ -232,9 +232,9 @@ export class BiometricService {
    * @param agentIp Optional agent IP address fetched from database (e.g., 192.168.1.50)
    *                If not provided, uses default from config
    */
-  async checkAgentHealth(agentIp?: string) {
-    // Build agent URL from provided IP or use default
-    const agentUrl = this.buildAgentUrl(agentIp);
+  async checkAgentHealth(agentIp?: string, agentPort?: number) {
+    // Build agent URL from provided IP and port or use default
+    const agentUrl = this.buildAgentUrl(agentIp, agentPort);
     
     // Log agent IP source for debugging
     if (agentIp) {
@@ -387,7 +387,7 @@ export class BiometricService {
    * @param agentIp Optional IP address (e.g., 192.168.1.50)
    * @returns Full agent URL (e.g., http://192.168.1.50:8765)
    */
-  private buildAgentUrl(agentIp?: string): string {
+  private buildAgentUrl(agentIp?: string, agentPort?: number): string {
     if (agentIp && agentIp.trim()) {
       // User provided IP - build URL from it
       const cleanIp = agentIp.trim();
@@ -395,7 +395,9 @@ export class BiometricService {
       if (cleanIp.startsWith('http://') || cleanIp.startsWith('https://')) {
         return cleanIp;
       }
-      return `http://${cleanIp}:8765`;
+      // Use provided port or default to 9001 (configured in appsettings.json)
+      const port = agentPort || 9001;
+      return `http://${cleanIp}:${port}`;
     }
     // Use default from config or environment variable
     return this.AGENT_BASE_URL;

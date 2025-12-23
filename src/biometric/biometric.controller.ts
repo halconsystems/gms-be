@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  NotFoundException,
   Headers,
   Req,
 } from '@nestjs/common';
@@ -22,9 +23,13 @@ import {
 } from '@nestjs/swagger';
 import { BiometricService } from './biometric.service';
 import { BiometricConfigService } from './biometric-config.service';
+import { AgentService } from './agent.service';
 import { CaptureFingerprintDto, CaptureResponseDto } from './dto/capture-fingerprint.dto';
 import { SaveFingerprintDto, SaveFingerprintResponseDto } from './dto/save-fingerprint.dto';
 import { SaveAgentConfigDto, AgentConfigResponseDto, AgentConfigDeleteResponseDto } from './dto/agent-config.dto';
+import { RegisterAgentDto, RegisterAgentResponseDto } from './dto/register-agent.dto';
+import { HeartbeatResponseDto } from './dto/heartbeat.dto';
+import { AgentStatusDto } from './dto/agent-status.dto';
 
 @ApiTags('Biometric')
 @Controller('biometric')
@@ -32,6 +37,7 @@ export class BiometricController {
   constructor(
     private readonly biometric: BiometricService,
     private readonly configService: BiometricConfigService,
+    private readonly agentService: AgentService,
   ) {}
 
   // === USB Fingerprint Device Endpoints (via local agent) ===
@@ -61,11 +67,12 @@ export class BiometricController {
     @Headers('x-agent-ip') xAgentIp?: string,
   ) {
     let agentIp: string | undefined;
+    let agentPort: number | undefined;
 
     // Comment 2: Implement fallback chain:
     // 1. First try X-Agent-Ip header (explicit agent IP from request)
-    // 2. Then try user-config lookup from database
-    // 3. Finally fall back to FINGERPRINT_AGENT_URL env var or localhost:8765
+    // 2. Then try user-config lookup from database (get both IP and port)
+    // 3. Finally fall back to FINGERPRINT_AGENT_URL env var or localhost:9001
     
     if (xAgentIp) {
       // Header explicitly specifies agent IP
@@ -74,14 +81,15 @@ export class BiometricController {
       // Get user ID from user context for database lookup
       const userId = req.user?.id;
       if (userId) {
-        // Fetch agent IP from database for this user
+        // Fetch agent IP and port from database for this user
         const agentConfig = await this.configService.getAgentConfig(userId);
         agentIp = agentConfig?.agentIp;
+        agentPort = agentConfig?.agentPort;  // Get port from database config
       }
     }
 
-    // Pass resolved IP to biometric service (may still be undefined for localhost fallback)
-    return await this.biometric.captureFingerprint(dto, agentIp);
+    // Pass resolved IP and port to biometric service (may still be undefined for localhost fallback)
+    return await this.biometric.captureFingerprint(dto, agentIp, agentPort);
   }
 
   @Post('save-fingerprint')
@@ -259,5 +267,85 @@ export class BiometricController {
   })
   async deleteAgentConfig(@Param('userId') userId: string) {
     return await this.configService.deleteAgentConfig(userId);
+  }
+}
+
+// === Agent Registration & Discovery Controller ===
+
+@ApiTags('Agents')
+@Controller()
+export class AgentController {
+  constructor(private readonly agentService: AgentService) {}
+
+  @Post('agents/register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Register fingerprint agent',
+    description: 'Agent calls this on startup to register with backend',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Agent registered successfully',
+    type: RegisterAgentResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid agent data (IP format, port range, etc.)',
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found',
+  })
+  async registerAgent(@Body() dto: RegisterAgentDto) {
+    return await this.agentService.registerAgent(dto);
+  }
+
+  @Post('agents/:agentId/heartbeat')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Agent heartbeat',
+    description: 'Agent sends heartbeat every 30 seconds to keep connection alive',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Heartbeat received successfully',
+    type: HeartbeatResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Agent not found',
+  })
+  async agentHeartbeat(@Param('agentId') agentId: string) {
+    return await this.agentService.updateHeartbeat(agentId);
+  }
+
+  @Get('users/me/agent')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get agent for logged-in user',
+    description: 'Frontend calls this to discover agent location and status',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Agent information retrieved successfully',
+    type: AgentStatusDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'No agent registered for this user',
+  })
+  @ApiBadRequestResponse({
+    description: 'User not authenticated',
+  })
+  async getMyAgent(@Req() req: any) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    const agent = await this.agentService.getAgentByUserId(userId);
+
+    if (!agent) {
+      throw new NotFoundException('No agent registered for this user');
+    }
+
+    return agent;
   }
 }

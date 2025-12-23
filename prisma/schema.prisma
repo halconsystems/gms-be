@@ -23,6 +23,7 @@ model User {
   userOffice    UserOffice[]
   userRoles     UserRole[]    @relation("UserUserRoles")
   fingerprintAgent FingerprintAgentConfig?
+  agentRegistration AgentRegistration?
   
   // Inventory Relations
   purchaseRequests          PurchaseRequest[]     @relation("PurchaseRequestRequester")
@@ -155,6 +156,21 @@ model FingerprintAgentConfig {
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model AgentRegistration {
+  id            String       @id @default(uuid()) @db.Uuid
+  userId        String       @unique @db.Uuid
+  agentIp       String       // e.g., "192.168.100.50"
+  agentPort     Int          @default(9001)
+  status        AgentStatus  @default(OFFLINE)
+  lastHeartbeat DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
 }
 
 model OrganizationBankAccount {
@@ -1328,4 +1344,9 @@ enum IssuanceStatus {
   PARTIAL_RETURN
   FULL_RETURN
   DAMAGED
+}
+
+enum AgentStatus {
+  ONLINE
+  OFFLINE
 }

@@ -21,6 +21,10 @@ async function bootstrap() {
       const allowedOrigins = [
         'https://portal.guardsos.com',
         'http://portal.guardsos.com',
+        'https://api.guardsos.com',
+        'http://api.guardsos.com',
+        'https://agent.guardsos.com',
+        'http://agent.guardsos.com',
         'https://www.guardsos.com',
         'http://www.guardsos.com',
         'http://localhost:3000',
@@ -54,6 +58,9 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new TransformInterceptor());
+
+  // Set global API prefix
+  app.setGlobalPrefix('api');
 
   // Swagger config
   const config = new DocumentBuilder()
