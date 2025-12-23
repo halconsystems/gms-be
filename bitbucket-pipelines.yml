@@ -52,6 +52,7 @@ pipelines:
             - sudo mkdir -p /var/www/certbot
             - sudo chown -R www-data:www-data /var/www/certbot
             - sudo mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+            - sudo chmod 755 /etc/letsencrypt/renewal-hooks/deploy
             - |-
               sudo cat > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh <<-'NGINX_EOF'
               	#!/bin/bash
