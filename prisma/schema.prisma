@@ -643,6 +643,8 @@ model LocationPayRollDuration {
   totalDays       Int
   isLocked        Boolean           @default(true)
   nextUnlockTime  DateTime
+  isFinalLocked   Boolean           @default(false)
+  finalLockedAt   DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   guardAllowances GuardAllowances[]
