@@ -29,7 +29,7 @@ pipelines:
 
             - echo "📦 Installing dependencies..."
             - npm install
-  
+
             - echo "🏗️ Building project..."
             - npm run build
             - npx prisma generate
@@ -52,12 +52,13 @@ pipelines:
             - sudo mkdir -p /var/www/certbot
             - sudo chown -R www-data:www-data /var/www/certbot
             - sudo mkdir -p /etc/letsencrypt/renewal-hooks/deploy
-            - sudo cat > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh << 'EOF'
-#!/bin/bash
-echo "Certificate renewed successfully. Reloading Nginx..." >> /var/log/nginx/certbot-renewal.log
-systemctl reload nginx
-echo "Nginx reloaded at $(date)" >> /var/log/nginx/certbot-renewal.log
-EOF
+            - |-
+              sudo cat > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh <<-'NGINX_EOF'
+              	#!/bin/bash
+              	echo "Certificate renewed successfully. Reloading Nginx..." >> /var/log/nginx/certbot-renewal.log
+              	systemctl reload nginx
+              	echo "Nginx reloaded at $(date)" >> /var/log/nginx/certbot-renewal.log
+              	NGINX_EOF
             - sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
             - echo "✅ Certbot renewal configuration ready"
 
@@ -67,16 +68,17 @@ EOF
             - echo "✅ Certbot is available"
 
             - echo "⏰ Scheduling Certbot auto-renewal (cron job)..."
-            - sudo bash << 'CRON_EOF'
-# Check if cron job already exists
-if sudo crontab -l 2>/dev/null | grep -q "certbot renew"; then
-  echo "✅ Certbot renewal cron job already scheduled"
-else
-  echo "📝 Adding Certbot renewal cron job..."
-  (sudo crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --webroot -w /var/www/certbot --quiet --post-hook \"systemctl reload nginx\" # Renew api.guardsos.com + agent.guardsos.com") | sudo crontab -
-  echo "✅ Certbot renewal cron job scheduled (12:00 PM daily)"
-fi
-CRON_EOF
+            - |-
+              sudo bash <<-'CRON_EOF'
+              	# Check if cron job already exists
+              	if sudo crontab -l 2>/dev/null | grep -q "certbot renew"; then
+              	  echo "✅ Certbot renewal cron job already scheduled"
+              	else
+              	  echo "📝 Adding Certbot renewal cron job..."
+              	  (sudo crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --webroot -w /var/www/certbot --quiet --post-hook \"systemctl reload nginx\" # Renew api.guardsos.com + agent.guardsos.com") | sudo crontab -
+              	  echo "✅ Certbot renewal cron job scheduled (12:00 PM daily)"
+              	fi
+              	CRON_EOF
 
             - echo "✔️ Verifying cron job is scheduled..."
             - sudo crontab -l | grep -A 1 "certbot renew" || echo "⚠️ Cron verification check completed"
