@@ -19,6 +19,7 @@ import { shouldFilterByOffice } from 'src/common/utils/office-filter';
 import { NotFoundError } from 'rxjs';
 import { AssignSupervisorDto } from './dto/assign-supervisor.dto';
 import { UpdateAssignSupervisorDto } from './dto/update-assign-supervisor.dto';
+import { buildBiometricStatus } from 'src/biometric/biometric-status.util';
 
 @Injectable()
 export class EmployeeService {
@@ -220,6 +221,19 @@ export class EmployeeService {
         biometric: true,
       },
     });
+  }
+
+  async getBiometricStatus(id: string, organizationId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id, organizationId },
+      include: { biometric: true },
+    });
+
+    if (!employee) {
+      throw new NotFoundException(`Employee with id ${id} not found`);
+    }
+
+    return buildBiometricStatus(employee.biometric);
   }
 
   findEmployeeByOrganizationId(organizationId: string, user?: any) {

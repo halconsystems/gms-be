@@ -14,7 +14,8 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BiometricStatusResponseDto } from 'src/biometric/dto/biometric-status-response.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-guard';
 import { RolesGuard } from 'src/common/guards/role-guard';
 import { Roles } from 'src/common/decorators/role.decorator';
@@ -84,6 +85,20 @@ export class EmployeeController {
       organizationId,
       req.user,
     );
+  }
+
+  @Get(':id/biometric-status')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
+  @ResponseMessage('Employee biometric status fetched successfully')
+  @ApiOperation({ summary: 'Get biometric completion status for an employee' })
+  @ApiResponse({ status: 200, type: BiometricStatusResponseDto })
+  getBiometricStatus(
+    @Param('id') id: string,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return this.employeeService.getBiometricStatus(id, organizationId);
   }
 
   @Get(':id')

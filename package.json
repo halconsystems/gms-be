@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "prisma:generate": "npx prisma generate"
+    "prisma:generate": "npx prisma generate",
+    "seed:fingerprint-bridge": "ts-node --transpile-only prisma/seed-fingerprint-bridge.ts"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
@@ -48,6 +49,7 @@
     "csv-parser": "^3.2.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.2",
+    "ioredis": "^5.11.1",
     "multer": "^2.0.2",
     "papaparse": "^5.5.3",
     "passport": "^0.7.0",
@@ -58,6 +60,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
+    "ws": "^8.21.0",
     "zkteco": "^1.10.21"
   },
   "devDependencies": {
@@ -80,6 +83,7 @@
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^10.0.0",
     "@types/validator": "^13.15.3",
+    "@types/ws": "^8.18.1",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

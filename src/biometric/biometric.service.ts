@@ -7,10 +7,12 @@ import {
   InternalServerErrorException,
   RequestTimeoutException,
   HttpException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { FileService } from 'src/file/file.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { CaptureFingerprintDto } from './dto/capture-fingerprint.dto';
 import { SaveFingerprintDto } from './dto/save-fingerprint.dto';
 import { firstValueFrom } from 'rxjs';
@@ -48,6 +50,7 @@ export class BiometricService {
     private readonly httpService: HttpService,
     private readonly fileService: FileService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {
     // Read agent URL from environment variable, default to localhost
     this.AGENT_BASE_URL = this.configService.get<string>(
@@ -154,9 +157,45 @@ export class BiometricService {
   }
 
   /**
+   * Ensure personId belongs to the authenticated user's organization.
+   */
+  async assertPersonInOrganization(
+    personId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: personId, organizationId },
+      select: { id: true },
+    });
+
+    if (employee) {
+      return;
+    }
+
+    const guard = await this.prisma.guard.findFirst({
+      where: { id: personId, organizationId },
+      select: { id: true },
+    });
+
+    if (guard) {
+      return;
+    }
+
+    throw new NotFoundException(
+      'Person not found in your organization',
+    );
+  }
+
+  /**
    * Save captured fingerprint image to S3
    */
-  async saveFingerprintToS3(dto: SaveFingerprintDto) {
+  async saveFingerprintToS3(dto: SaveFingerprintDto, organizationId: string) {
+    if (!dto.personId) {
+      throw new BadRequestException('personId is required');
+    }
+
+    await this.assertPersonInOrganization(dto.personId, organizationId);
+
     this.logger.log(`Saving fingerprint to S3: ${dto.fingerName}`);
 
     let imageBuffer: Buffer | null = null;

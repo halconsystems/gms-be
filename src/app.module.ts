@@ -6,6 +6,7 @@ import { UserModule } from './user/user.module';
 import { RoleModule } from './role/role.module';
 import { UserRoleModule } from './user-role/user-role.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { GuardCategoryModule } from './guard-category/guard-category.module';
 import { OrganizationModule } from './organization/organization.module';
@@ -20,6 +21,7 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { BiometricModule } from './biometric/biometric.module';
+import { AgentGatewayModule } from './agent-gateway/agent-gateway.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { PersonsModule } from './persons/persons.module';
@@ -52,6 +54,7 @@ import { InventoryModule } from './inventory/inventory.module';
     RoleModule,
     UserRoleModule,
     PrismaModule,
+    RedisModule,
     GuardCategoryModule,
     OrganizationModule,
     GuardModule,
@@ -64,6 +67,7 @@ import { InventoryModule } from './inventory/inventory.module';
     AttendanceModule,
     PayrollModule,
     BiometricModule,
+    AgentGatewayModule,
     AccountsModule,
     PersonsModule,
     InventoryModule,

@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as dotenv from 'dotenv';
 
 import { BiometricService } from './biometric/biometric.service';
+import { AgentGatewayService } from './agent-gateway/agent-gateway.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -16,11 +17,14 @@ async function bootstrap() {
   app.use(require('body-parser').json({ limit: '50mb' }));
   app.use(require('body-parser').urlencoded({ limit: '50mb', extended: true }));
 
+  const isDev = process.env.NODE_ENV !== 'production';
+
   app.enableCors({
     origin: (origin, callback) => {
       const allowedOrigins = [
         'https://portal.guardsos.com',
         'http://portal.guardsos.com',
+         'http://localhost:5173',
         'https://api.guardsos.com',
         'http://api.guardsos.com',
         'https://agent.guardsos.com',
@@ -29,13 +33,29 @@ async function bootstrap() {
         'http://www.guardsos.com',
         'http://localhost:3000',
         'http://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+        ''
       ];
-      
+
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+        return;
       }
+
+      // Local dev: allow localhost, 127.0.0.1, and LAN IPs on any port
+      if (
+        isDev &&
+        origin &&
+        /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/.test(
+          origin,
+        )
+      ) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
@@ -85,6 +105,15 @@ async function bootstrap() {
   // Listen on 0.0.0.0 to allow external access (e.g. from EC2)
   const PORT = process.env.PORT ?? 5001;
   await app.listen(PORT, '0.0.0.0');
+
+  const gateway = app.get(AgentGatewayService);
+  const server = app.getHttpServer();
+  server.on('upgrade', (req, socket, head) => {
+    const pathname = req.url?.split('?')[0];
+    if (pathname === '/api/agents/ws') {
+      gateway.handleUpgrade(req, socket, head);
+    }
+  });
 
   // For local dev, get local IPs
   const getLocalIp = () => {

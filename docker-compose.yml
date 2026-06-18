@@ -1,5 +1,11 @@
 version : "3.8"
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - 6379:6379
+    networks:
+      - halcon
   dev-db:
     image: postgres:13
     ports:

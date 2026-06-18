@@ -16,7 +16,8 @@ import {
 import { GuardService } from './guard.service';
 import { CreateGuardDto } from './dto/create-guard-dto';
 import { UpdateGuardDto } from './dto/update-guard-dto';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BiometricStatusResponseDto } from 'src/biometric/dto/biometric-status-response.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-guard';
 import { RolesGuard } from 'src/common/guards/role-guard';
 import { Roles } from 'src/common/decorators/role.decorator';
@@ -79,6 +80,21 @@ export class GuardController {
   @ResponseMessage('Guard fetched successfully')
   findAllByOrganizationId(@GetOrganizationId() organizationId: string, @Req() req) {
     return this.guardService.findGuardsByOrganizationId(organizationId, req.user);
+  }
+
+  @Get(':id/biometric-status')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
+  @ResponseMessage('Guard biometric status fetched successfully')
+  @ApiOperation({ summary: 'Get biometric completion status for a guard' })
+  @ApiResponse({ status: 200, type: BiometricStatusResponseDto })
+  getBiometricStatus(
+    @Param('id') id: string,
+    @GetOrganizationId() organizationId: string,
+    @Req() req,
+  ) {
+    return this.guardService.getBiometricStatus(id, organizationId, req.user);
   }
 
   @Get(':id')

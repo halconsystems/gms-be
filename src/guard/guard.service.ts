@@ -19,6 +19,7 @@ import { EmployeeService } from 'src/employee/employee.service';
 import { RolesEnum } from 'src/common/enums/roles-enum';
 import { shouldFilterByOffice, getSupervisorLocationFilter } from 'src/common/utils/office-filter';
 import { PromoteSupervisorDto } from './dto/promote-supervisor.dto';
+import { buildBiometricStatus } from 'src/biometric/biometric-status.util';
 
 @Injectable()
 export class GuardService {
@@ -559,6 +560,11 @@ export class GuardService {
     } else {
       return guard;
     }
+  }
+
+  async getBiometricStatus(id: string, organizationId: string, user?: any) {
+    const guard = await this.findOne(id, organizationId, user);
+    return buildBiometricStatus(guard.biometric);
   }
 
   async findByServiceNumber(serviceNumber: number, organizationId: string, user?: any) {

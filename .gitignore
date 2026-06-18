@@ -50,6 +50,7 @@ lerna-debug.log*
 pids
 *.pid
 *.seed
+prisma/fingerprint-bridge-test.credentials.json
 *.pid.lock
 
 # Diagnostic reports (https://nodejs.org/api/report.html)

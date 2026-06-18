@@ -12,6 +12,7 @@ import {
   NotFoundException,
   Headers,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,16 +21,26 @@ import {
   ApiBadRequestResponse,
   ApiServiceUnavailableResponse,
   ApiNotFoundResponse,
+  ApiGatewayTimeoutResponse,
+  ApiConflictResponse,
 } from '@nestjs/swagger';
 import { BiometricService } from './biometric.service';
 import { BiometricConfigService } from './biometric-config.service';
 import { AgentService } from './agent.service';
+import { ScanCoordinatorService } from './scan-coordinator.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { CaptureFingerprintDto, CaptureResponseDto } from './dto/capture-fingerprint.dto';
 import { SaveFingerprintDto, SaveFingerprintResponseDto } from './dto/save-fingerprint.dto';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { SaveAgentConfigDto, AgentConfigResponseDto, AgentConfigDeleteResponseDto } from './dto/agent-config.dto';
 import { RegisterAgentDto, RegisterAgentResponseDto } from './dto/register-agent.dto';
 import { HeartbeatResponseDto } from './dto/heartbeat.dto';
-import { AgentStatusDto } from './dto/agent-status.dto';
+import { OfficeAgentStatusDto } from './dto/office-agent-status.dto';
+import { TriggerScanDto } from './dto/trigger-scan.dto';
+import { TriggerScanResponseDto } from './dto/trigger-scan-response.dto';
+import { JwtAuthGuard } from 'src/common/guards/jwt-guard';
+import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.decorator';
+import { GetOfficeId } from 'src/common/decorators/get-office-id.decorator';
 
 @ApiTags('Biometric')
 @Controller('biometric')
@@ -93,6 +104,8 @@ export class BiometricController {
   }
 
   @Post('save-fingerprint')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('jwt')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Save captured fingerprint image to S3',
@@ -107,8 +120,11 @@ export class BiometricController {
   @ApiBadRequestResponse({
     description: 'Invalid base64 image or missing required fields',
   })
-  async saveFingerprint(@Body() dto: SaveFingerprintDto) {
-    return await this.biometric.saveFingerprintToS3(dto);
+  async saveFingerprint(
+    @Body() dto: SaveFingerprintDto,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return await this.biometric.saveFingerprintToS3(dto, organizationId);
   }
 
   @Get('agent-health')
@@ -275,7 +291,64 @@ export class BiometricController {
 @ApiTags('Agents')
 @Controller()
 export class AgentController {
-  constructor(private readonly agentService: AgentService) {}
+  constructor(
+    private readonly agentService: AgentService,
+    private readonly scanCoordinator: ScanCoordinatorService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  @Post('trigger-scan')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Trigger a fingerprint scan via the office agent',
+    description:
+      'Publishes a scan request to the office agent over Redis and waits for the result. Organization and office are derived from the authenticated user.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Fingerprint captured successfully',
+    type: TriggerScanResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Missing office assignment or agent-reported capture failure',
+  })
+  @ApiConflictResponse({
+    description: 'Agent reported concurrent capture in progress',
+  })
+  @ApiGatewayTimeoutResponse({
+    description: 'Scan timed out waiting for agent response (55s)',
+  })
+  async triggerScan(
+    @GetOrganizationId() organizationId: string,
+    @GetOfficeId() officeId: string | undefined,
+    @Req() req: { user: { id: string } },
+    @Body() dto: TriggerScanDto,
+  ): Promise<TriggerScanResponseDto> {
+    if (!officeId) {
+      throw new BadRequestException('User does not have an assigned office');
+    }
+
+    const userId = req.user.id;
+    const result = await this.scanCoordinator.triggerScan(
+      organizationId,
+      officeId,
+      userId,
+      dto.fingerName,
+    );
+
+    const scan = await this.prisma.fingerprintScan.findUnique({
+      where: { id: result.scanId },
+    });
+
+    return {
+      scanId: result.scanId,
+      s3Url: result.s3Url!,
+      s3Key: result.s3Key ?? scan?.s3Key ?? '',
+      quality: scan?.quality ?? undefined,
+      fingerName: scan?.fingerName ?? dto.fingerName,
+    };
+  }
 
   @Post('agents/register')
   @HttpCode(HttpStatus.CREATED)
@@ -317,35 +390,51 @@ export class AgentController {
   }
 
   @Get('users/me/agent')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Get agent for logged-in user',
-    description: 'Frontend calls this to discover agent location and status',
+    summary: 'Get office agent status for logged-in user',
+    description:
+      'Returns WebSocket connectivity status for the office agent bound to the user organization and office',
   })
   @ApiResponse({
     status: 200,
-    description: 'Agent information retrieved successfully',
-    type: AgentStatusDto,
+    description: 'Office agent status retrieved successfully',
+    type: OfficeAgentStatusDto,
   })
   @ApiNotFoundResponse({
-    description: 'No agent registered for this user',
+    description: 'No office agent provisioned for this office',
   })
   @ApiBadRequestResponse({
-    description: 'User not authenticated',
+    description: 'User not authenticated or missing office assignment',
   })
-  async getMyAgent(@Req() req: any) {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      throw new BadRequestException('User not authenticated');
+  async getMyAgent(
+    @GetOrganizationId() organizationId: string,
+    @GetOfficeId() officeId: string | undefined,
+  ): Promise<OfficeAgentStatusDto> {
+    if (!officeId) {
+      throw new BadRequestException('User does not have an assigned office');
     }
 
-    const agent = await this.agentService.getAgentByUserId(userId);
+    const officeAgent = await this.prisma.officeAgent.findUnique({
+      where: {
+        organizationId_officeId: {
+          organizationId,
+          officeId,
+        },
+      },
+    });
 
-    if (!agent) {
-      throw new NotFoundException('No agent registered for this user');
+    if (!officeAgent) {
+      throw new NotFoundException('No office agent provisioned for this office');
     }
 
-    return agent;
+    const isOnline = officeAgent.status === 'ONLINE';
+
+    return {
+      status: officeAgent.status,
+      lastSeenAt: officeAgent.lastSeenAt,
+      isOnline,
+    };
   }
 }

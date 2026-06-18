@@ -9,6 +9,10 @@ pipelines:
           working_directory: /home/ubuntu/gms-be
           script:
             - echo "🚀 Starting deployment..."
+            - echo "✅ Pre-deployment validation started..."
+            - echo "🔍 Checking nginx.conf syntax locally..."
+            - sudo nginx -t -c /home/ubuntu/gms-be/nginx.conf || (echo "❌ Nginx config has syntax errors" && exit 1)
+            - echo "✅ Nginx config syntax is valid"
 
             - echo "🔑 Setting permissions..."
             - sudo chown -R ubuntu:ubuntu /home/ubuntu/gms-be
@@ -35,7 +39,7 @@ pipelines:
             - npx prisma generate
             - sleep 20
             - echo "🚀 Starting PM2..."
-            - sudo pm2 start dist/src/main.js --name gms-be
+            - sudo pm2 start dist/src/main.js --name gms-be -i max
 
             - echo "🔄 Deploying Nginx configuration..."
             - sudo cp /home/ubuntu/gms-be/nginx.conf /etc/nginx/nginx.conf
@@ -44,7 +48,16 @@ pipelines:
             - echo "🔍 Verifying Nginx syntax..."
             - sudo nginx -t
             
-            - echo "🔄 Reloading Nginx..."
+            - echo "� Checking for existing SSL certificates..."
+            - |
+              if [ -f /etc/letsencrypt/live/api.guardsos.com/fullchain.pem ]; then
+                echo "✅ SSL certificates found"
+              else
+                echo "⚠️ SSL certificates not found - generating with Certbot..."
+                sudo certbot certonly --standalone -d api.guardsos.com -d agent.guardsos.com --non-interactive --agree-tos -m admin@guardsos.com || echo "⚠️ Certbot setup skipped (may require manual intervention)"
+              fi
+            
+            - echo "�🔄 Reloading Nginx..."
             - sudo systemctl reload nginx
             - echo "✅ Nginx reloaded with api.guardsos.com and agent.guardsos.com server blocks"
 
