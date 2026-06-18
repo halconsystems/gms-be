@@ -75,7 +75,10 @@ export class FileService {
     }
   }
 
-  async getSecureDownloadUrl(key: string): Promise<string> {
+  async getSecureDownloadUrl(
+    key: string,
+    downloadFilename?: string,
+  ): Promise<string> {
     const bucketName = process.env.AWS_S3_BUCKET || 'guardsos-bucket-2025';
     if (!bucketName) {
       throw new Error('AWS S3 bucket name is not configured');
@@ -84,6 +87,12 @@ export class FileService {
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
+      ...(downloadFilename
+        ? {
+            ResponseContentDisposition: `attachment; filename="${downloadFilename.replace(/"/g, '')}"`,
+            ResponseContentType: 'application/octet-stream',
+          }
+        : {}),
     });
 
     return await getSignedUrl(this.s3, command, { expiresIn: 1240 });

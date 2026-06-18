@@ -25,7 +25,10 @@ import { ResponseMessage } from 'src/common/decorators/response-message.decorato
 import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.decorator';
 
 export const BIOMETRIC_DESKTOP_INSTALLER_S3_KEY =
-  'uploads/1781803480019-guardsosbiometric';
+  'GuardSOS-Biometric-Setup-1.0.1.exe';
+
+export const BIOMETRIC_DESKTOP_INSTALLER_FILENAME =
+  'GuardSOS-Biometric-Setup-1.0.1.exe';
 
 @ApiTags('File')
 @Controller('file')
@@ -39,8 +42,12 @@ export class FileController {
   async getBiometricDesktopInstallerUrl() {
     const url = await this.fileService.getSecureDownloadUrl(
       BIOMETRIC_DESKTOP_INSTALLER_S3_KEY,
+      BIOMETRIC_DESKTOP_INSTALLER_FILENAME,
     );
-    return { url };
+    return {
+      url,
+      filename: BIOMETRIC_DESKTOP_INSTALLER_FILENAME,
+    };
   }
 
   @Post('presigned-url')
