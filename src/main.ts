@@ -6,9 +6,6 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import * as os from 'os';
 import * as dotenv from 'dotenv';
 
-import { BiometricService } from './biometric/biometric.service';
-import { AgentGatewayService } from './agent-gateway/agent-gateway.service';
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false, // Disable the default body parser
@@ -27,8 +24,6 @@ async function bootstrap() {
          'http://localhost:5173',
         'https://api.guardsos.com',
         'http://api.guardsos.com',
-        'https://agent.guardsos.com',
-        'http://agent.guardsos.com',
         'https://www.guardsos.com',
         'http://www.guardsos.com',
         'http://localhost:3000',
@@ -105,15 +100,6 @@ async function bootstrap() {
   // Listen on 0.0.0.0 to allow external access (e.g. from EC2)
   const PORT = process.env.PORT ?? 5001;
   await app.listen(PORT, '0.0.0.0');
-
-  const gateway = app.get(AgentGatewayService);
-  const server = app.getHttpServer();
-  server.on('upgrade', (req, socket, head) => {
-    const pathname = req.url?.split('?')[0];
-    if (pathname === '/api/agents/ws') {
-      gateway.handleUpgrade(req, socket, head);
-    }
-  });
 
   // For local dev, get local IPs
   const getLocalIp = () => {

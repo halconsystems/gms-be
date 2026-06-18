@@ -8,8 +8,6 @@ import {
   Param,
   HttpCode,
   HttpStatus,
-  BadRequestException,
-  NotFoundException,
   Headers,
   Req,
   UseGuards,
@@ -21,26 +19,15 @@ import {
   ApiBadRequestResponse,
   ApiServiceUnavailableResponse,
   ApiNotFoundResponse,
-  ApiGatewayTimeoutResponse,
-  ApiConflictResponse,
 } from '@nestjs/swagger';
 import { BiometricService } from './biometric.service';
 import { BiometricConfigService } from './biometric-config.service';
-import { AgentService } from './agent.service';
-import { ScanCoordinatorService } from './scan-coordinator.service';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { CaptureFingerprintDto, CaptureResponseDto } from './dto/capture-fingerprint.dto';
 import { SaveFingerprintDto, SaveFingerprintResponseDto } from './dto/save-fingerprint.dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { SaveAgentConfigDto, AgentConfigResponseDto, AgentConfigDeleteResponseDto } from './dto/agent-config.dto';
-import { RegisterAgentDto, RegisterAgentResponseDto } from './dto/register-agent.dto';
-import { HeartbeatResponseDto } from './dto/heartbeat.dto';
-import { OfficeAgentStatusDto } from './dto/office-agent-status.dto';
-import { TriggerScanDto } from './dto/trigger-scan.dto';
-import { TriggerScanResponseDto } from './dto/trigger-scan-response.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-guard';
 import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.decorator';
-import { GetOfficeId } from 'src/common/decorators/get-office-id.decorator';
 
 @ApiTags('Biometric')
 @Controller('biometric')
@@ -48,7 +35,6 @@ export class BiometricController {
   constructor(
     private readonly biometric: BiometricService,
     private readonly configService: BiometricConfigService,
-    private readonly agentService: AgentService,
   ) {}
 
   // === USB Fingerprint Device Endpoints (via local agent) ===
@@ -80,26 +66,20 @@ export class BiometricController {
     let agentIp: string | undefined;
     let agentPort: number | undefined;
 
-    // Comment 2: Implement fallback chain:
-    // 1. First try X-Agent-Ip header (explicit agent IP from request)
-    // 2. Then try user-config lookup from database (get both IP and port)
-    // 3. Finally fall back to FINGERPRINT_AGENT_URL env var or localhost:9001
-    
+    // 1. X-Agent-Ip header (explicit agent IP from request)
+    // 2. User-config lookup from database (IP and port)
+    // 3. FINGERPRINT_AGENT_URL env var or localhost:9001
     if (xAgentIp) {
-      // Header explicitly specifies agent IP
       agentIp = xAgentIp.trim();
     } else {
-      // Get user ID from user context for database lookup
       const userId = req.user?.id;
       if (userId) {
-        // Fetch agent IP and port from database for this user
         const agentConfig = await this.configService.getAgentConfig(userId);
         agentIp = agentConfig?.agentIp;
-        agentPort = agentConfig?.agentPort;  // Get port from database config
+        agentPort = agentConfig?.agentPort;
       }
     }
 
-    // Pass resolved IP and port to biometric service (may still be undefined for localhost fallback)
     return await this.biometric.captureFingerprint(dto, agentIp, agentPort);
   }
 
@@ -142,10 +122,8 @@ export class BiometricController {
     @Headers('x-real-ip') realIp?: string,
     @Headers('cf-connecting-ip') cfIp?: string,
   ) {
-    // Extract client IP for auto-detection on frontend
-    // Priority: x-real-ip > cf-connecting-ip > x-forwarded-for > remoteAddress
     let clientIp = 'unknown';
-    
+
     if (realIp) {
       clientIp = realIp.trim();
     } else if (cfIp) {
@@ -155,23 +133,20 @@ export class BiometricController {
     } else if (req.connection?.remoteAddress) {
       clientIp = req.connection.remoteAddress;
     }
-    
-    // Get user ID from user context
+
     const userId = req.user?.id;
     let agentIp: string | undefined;
 
     if (userId) {
-      // Fetch agent IP from database for this user
       const agentConfig = await this.configService.getAgentConfig(userId);
       agentIp = agentConfig?.agentIp;
     }
-    
+
     const healthStatus = await this.biometric.checkAgentHealth(agentIp);
-    
-    // Add client IP to response for frontend auto-detection
+
     return {
       ...healthStatus,
-      clientIp: clientIp,
+      clientIp,
     };
   }
 
@@ -260,7 +235,6 @@ export class BiometricController {
     @Param('userId') userId: string,
     @Body() dto: SaveAgentConfigDto,
   ) {
-    // Override userId from path parameter
     return await this.configService.saveAgentConfig({
       ...dto,
       userId,
@@ -283,158 +257,5 @@ export class BiometricController {
   })
   async deleteAgentConfig(@Param('userId') userId: string) {
     return await this.configService.deleteAgentConfig(userId);
-  }
-}
-
-// === Agent Registration & Discovery Controller ===
-
-@ApiTags('Agents')
-@Controller()
-export class AgentController {
-  constructor(
-    private readonly agentService: AgentService,
-    private readonly scanCoordinator: ScanCoordinatorService,
-    private readonly prisma: PrismaService,
-  ) {}
-
-  @Post('trigger-scan')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Trigger a fingerprint scan via the office agent',
-    description:
-      'Publishes a scan request to the office agent over Redis and waits for the result. Organization and office are derived from the authenticated user.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Fingerprint captured successfully',
-    type: TriggerScanResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Missing office assignment or agent-reported capture failure',
-  })
-  @ApiConflictResponse({
-    description: 'Agent reported concurrent capture in progress',
-  })
-  @ApiGatewayTimeoutResponse({
-    description: 'Scan timed out waiting for agent response (55s)',
-  })
-  async triggerScan(
-    @GetOrganizationId() organizationId: string,
-    @GetOfficeId() officeId: string | undefined,
-    @Req() req: { user: { id: string } },
-    @Body() dto: TriggerScanDto,
-  ): Promise<TriggerScanResponseDto> {
-    if (!officeId) {
-      throw new BadRequestException('User does not have an assigned office');
-    }
-
-    const userId = req.user.id;
-    const result = await this.scanCoordinator.triggerScan(
-      organizationId,
-      officeId,
-      userId,
-      dto.fingerName,
-    );
-
-    const scan = await this.prisma.fingerprintScan.findUnique({
-      where: { id: result.scanId },
-    });
-
-    return {
-      scanId: result.scanId,
-      s3Url: result.s3Url!,
-      s3Key: result.s3Key ?? scan?.s3Key ?? '',
-      quality: scan?.quality ?? undefined,
-      fingerName: scan?.fingerName ?? dto.fingerName,
-    };
-  }
-
-  @Post('agents/register')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'Register fingerprint agent',
-    description: 'Agent calls this on startup to register with backend',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Agent registered successfully',
-    type: RegisterAgentResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Invalid agent data (IP format, port range, etc.)',
-  })
-  @ApiNotFoundResponse({
-    description: 'User not found',
-  })
-  async registerAgent(@Body() dto: RegisterAgentDto) {
-    return await this.agentService.registerAgent(dto);
-  }
-
-  @Post('agents/:agentId/heartbeat')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Agent heartbeat',
-    description: 'Agent sends heartbeat every 30 seconds to keep connection alive',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Heartbeat received successfully',
-    type: HeartbeatResponseDto,
-  })
-  @ApiNotFoundResponse({
-    description: 'Agent not found',
-  })
-  async agentHeartbeat(@Param('agentId') agentId: string) {
-    return await this.agentService.updateHeartbeat(agentId);
-  }
-
-  @Get('users/me/agent')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Get office agent status for logged-in user',
-    description:
-      'Returns WebSocket connectivity status for the office agent bound to the user organization and office',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Office agent status retrieved successfully',
-    type: OfficeAgentStatusDto,
-  })
-  @ApiNotFoundResponse({
-    description: 'No office agent provisioned for this office',
-  })
-  @ApiBadRequestResponse({
-    description: 'User not authenticated or missing office assignment',
-  })
-  async getMyAgent(
-    @GetOrganizationId() organizationId: string,
-    @GetOfficeId() officeId: string | undefined,
-  ): Promise<OfficeAgentStatusDto> {
-    if (!officeId) {
-      throw new BadRequestException('User does not have an assigned office');
-    }
-
-    const officeAgent = await this.prisma.officeAgent.findUnique({
-      where: {
-        organizationId_officeId: {
-          organizationId,
-          officeId,
-        },
-      },
-    });
-
-    if (!officeAgent) {
-      throw new NotFoundException('No office agent provisioned for this office');
-    }
-
-    const isOnline = officeAgent.status === 'ONLINE';
-
-    return {
-      status: officeAgent.status,
-      lastSeenAt: officeAgent.lastSeenAt,
-      isOnline,
-    };
   }
 }

@@ -2,9 +2,7 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { BiometricService } from './biometric.service';
 import { BiometricConfigService } from './biometric-config.service';
-import { AgentService } from './agent.service';
-import { ScanCoordinatorService } from './scan-coordinator.service';
-import { BiometricController, AgentController } from './biometric.controller';
+import { BiometricController } from './biometric.controller';
 import { FileModule } from 'src/file/file.module';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -16,13 +14,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
     }),
     FileModule,
   ],
-  providers: [
-    BiometricService,
-    BiometricConfigService,
-    AgentService,
-    ScanCoordinatorService,
-    PrismaService,
-  ],
-  controllers: [BiometricController, AgentController],
+  providers: [BiometricService, BiometricConfigService, PrismaService],
+  controllers: [BiometricController],
 })
 export class BiometricModule {}
