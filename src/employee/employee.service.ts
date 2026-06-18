@@ -19,7 +19,9 @@ import { shouldFilterByOffice } from 'src/common/utils/office-filter';
 import { NotFoundError } from 'rxjs';
 import { AssignSupervisorDto } from './dto/assign-supervisor.dto';
 import { UpdateAssignSupervisorDto } from './dto/update-assign-supervisor.dto';
+import { buildBiometricCaptures } from 'src/biometric/biometric-captures.util';
 import { buildBiometricStatus } from 'src/biometric/biometric-status.util';
+import { FileService } from 'src/file/file.service';
 
 @Injectable()
 export class EmployeeService {
@@ -27,6 +29,7 @@ export class EmployeeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly user: UserService,
+    private readonly fileService: FileService,
     @Inject(forwardRef(() => GuardService))
     private readonly guardService: GuardService,
   ) {}
@@ -234,6 +237,19 @@ export class EmployeeService {
     }
 
     return buildBiometricStatus(employee.biometric);
+  }
+
+  async getBiometricCaptures(id: string, organizationId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id, organizationId },
+      include: { biometric: true },
+    });
+
+    if (!employee) {
+      throw new NotFoundException(`Employee with id ${id} not found`);
+    }
+
+    return buildBiometricCaptures(this.fileService, employee.biometric);
   }
 
   findEmployeeByOrganizationId(organizationId: string, user?: any) {

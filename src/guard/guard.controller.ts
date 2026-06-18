@@ -18,6 +18,7 @@ import { CreateGuardDto } from './dto/create-guard-dto';
 import { UpdateGuardDto } from './dto/update-guard-dto';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BiometricStatusResponseDto } from 'src/biometric/dto/biometric-status-response.dto';
+import { BiometricCapturesResponseDto } from 'src/biometric/dto/biometric-captures-response.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-guard';
 import { RolesGuard } from 'src/common/guards/role-guard';
 import { Roles } from 'src/common/decorators/role.decorator';
@@ -95,6 +96,21 @@ export class GuardController {
     @Req() req,
   ) {
     return this.guardService.getBiometricStatus(id, organizationId, req.user);
+  }
+
+  @Get(':id/biometric-captures')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
+  @ResponseMessage('Guard biometric captures fetched successfully')
+  @ApiOperation({ summary: 'Get stored fingerprint image previews for a guard' })
+  @ApiResponse({ status: 200, type: BiometricCapturesResponseDto })
+  getBiometricCaptures(
+    @Param('id') id: string,
+    @GetOrganizationId() organizationId: string,
+    @Req() req,
+  ) {
+    return this.guardService.getBiometricCaptures(id, organizationId, req.user);
   }
 
   @Get(':id')

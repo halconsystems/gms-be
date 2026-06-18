@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BiometricStatusResponseDto } from 'src/biometric/dto/biometric-status-response.dto';
+import { BiometricCapturesResponseDto } from 'src/biometric/dto/biometric-captures-response.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-guard';
 import { RolesGuard } from 'src/common/guards/role-guard';
 import { Roles } from 'src/common/decorators/role.decorator';
@@ -90,7 +91,7 @@ export class EmployeeController {
   @Get(':id/biometric-status')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
   @ResponseMessage('Employee biometric status fetched successfully')
   @ApiOperation({ summary: 'Get biometric completion status for an employee' })
   @ApiResponse({ status: 200, type: BiometricStatusResponseDto })
@@ -99,6 +100,20 @@ export class EmployeeController {
     @GetOrganizationId() organizationId: string,
   ) {
     return this.employeeService.getBiometricStatus(id, organizationId);
+  }
+
+  @Get(':id/biometric-captures')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
+  @ResponseMessage('Employee biometric captures fetched successfully')
+  @ApiOperation({ summary: 'Get stored fingerprint image previews for an employee' })
+  @ApiResponse({ status: 200, type: BiometricCapturesResponseDto })
+  getBiometricCaptures(
+    @Param('id') id: string,
+    @GetOrganizationId() organizationId: string,
+  ) {
+    return this.employeeService.getBiometricCaptures(id, organizationId);
   }
 
   @Get(':id')
