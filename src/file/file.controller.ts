@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   UseGuards,
   UseInterceptors,
@@ -23,10 +24,24 @@ import { FileSizeValidationPipe } from 'src/common/utils/file-size-validation-pi
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { GetOrganizationId } from 'src/common/decorators/get-organization-Id.decorator';
 
+export const BIOMETRIC_DESKTOP_INSTALLER_S3_KEY =
+  'uploads/1781803480019-guardsosbiometric';
+
 @ApiTags('File')
 @Controller('file')
 export class FileController {
   constructor(private readonly fileService: FileService) {}
+
+  @Get('biometric-desktop-installer')
+  @ApiBearerAuth('jwt')
+  @ApiOperation({ summary: 'Get presigned URL for GuardSOS Biometric desktop installer' })
+  @UseGuards(JwtAuthGuard)
+  async getBiometricDesktopInstallerUrl() {
+    const url = await this.fileService.getSecureDownloadUrl(
+      BIOMETRIC_DESKTOP_INSTALLER_S3_KEY,
+    );
+    return { url };
+  }
 
   @Post('presigned-url')
   @ApiOperation({ summary: 'get S3 bucket presigned url' })
