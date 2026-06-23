@@ -22,6 +22,10 @@ import { UpdateAssignSupervisorDto } from './dto/update-assign-supervisor.dto';
 import { buildBiometricCaptures } from 'src/biometric/biometric-captures.util';
 import { buildBiometricStatus } from 'src/biometric/biometric-status.util';
 import { FileService } from 'src/file/file.service';
+import {
+  formatDateFieldLabel,
+  parseFlexibleDate,
+} from 'src/common/utils/parse-flexible-date';
 
 @Injectable()
 export class EmployeeService {
@@ -130,6 +134,299 @@ export class EmployeeService {
       });
     } catch (error) {
       handlePrismaError(error);
+    }
+  }
+
+  async bulkUploadEmployees(organizationId: string, employees: any[]) {
+    try {
+      if (!Array.isArray(employees) || employees.length === 0) {
+        return { success: false, message: 'No employee data provided.' };
+      }
+
+      const requiredFields = [
+        'fullName',
+        'cnicNumber',
+        'cnicIssueDate',
+        'cnicExpiryDate',
+        'height',
+        'serviceNumber',
+      ];
+      const now = new Date();
+
+      type EmployeeInput = {
+        organizationId: string;
+        registrationDate?: Date;
+        fullName: string;
+        fatherName?: string;
+        dateOfBirth?: Date | null;
+        cnicNumber: string;
+        cnicIssueDate: Date;
+        cnicExpiryDate: Date;
+        currentAddress?: string;
+        permanentAddress?: string;
+        weight?: number | null;
+        height: number;
+        religion?: string;
+        bloodGroup?: string;
+        bloodPressure?: string;
+        heartBeat?: string;
+        eyeColor?: string;
+        disability?: string;
+        eobiNumber?: string;
+        sessiNumber?: string;
+        kinName?: string;
+        kinFatherName?: string;
+        kinCNIC?: string;
+        serviceNumber: number;
+        contactNumber?: string;
+        kinRelation?: string;
+        religionSect?: string;
+        kinContactNumber?: string;
+        createdAt: Date;
+        isActive: boolean;
+        updatedAt: Date;
+      };
+
+      const employeesToCreate: EmployeeInput[] = [];
+      const validationErrors: {
+        row: number;
+        missing: string[];
+        errors?: string[];
+      }[] = [];
+      const seenCnicNumbers = new Set<string>();
+      const seenServiceNumbers = new Set<number>();
+
+      for (let i = 0; i < employees.length; i++) {
+        const e = employees[i];
+        const errors: string[] = [];
+
+        const missing = requiredFields.filter((f) => {
+          const value = e[f];
+          return value == null || String(value).trim() === '';
+        });
+        if (missing.length > 0) {
+          validationErrors.push({
+            row: i + 1,
+            missing,
+            errors: missing.map(
+              (field) => `Missing ${formatDateFieldLabel(field)}`,
+            ),
+          });
+          continue;
+        }
+
+        const cnicIssueDate = parseFlexibleDate(e.cnicIssueDate);
+        if (!cnicIssueDate) {
+          errors.push(
+            `Invalid CNIC Issue Date "${e.cnicIssueDate}". Use DD/MM/YYYY or YYYY-MM-DD`,
+          );
+        }
+
+        const cnicExpiryDate = parseFlexibleDate(e.cnicExpiryDate);
+        if (!cnicExpiryDate) {
+          errors.push(
+            `Invalid CNIC Expiry Date "${e.cnicExpiryDate}". Use DD/MM/YYYY or YYYY-MM-DD`,
+          );
+        }
+
+        const dateOfBirth = e.dateOfBirth
+          ? parseFlexibleDate(e.dateOfBirth)
+          : null;
+        if (e.dateOfBirth && !dateOfBirth) {
+          errors.push(
+            `Invalid Date of Birth "${e.dateOfBirth}". Use DD/MM/YYYY or YYYY-MM-DD`,
+          );
+        }
+
+        const registrationDate = e.registrationDate
+          ? parseFlexibleDate(e.registrationDate)
+          : null;
+        if (e.registrationDate && !registrationDate) {
+          errors.push(
+            `Invalid Registration Date "${e.registrationDate}". Use DD/MM/YYYY or YYYY-MM-DD`,
+          );
+        }
+
+        const parsedHeight = Number(e.height);
+        if (Number.isNaN(parsedHeight)) {
+          errors.push(`Invalid height "${e.height}"`);
+        }
+
+        const parsedServiceNumber = Number(e.serviceNumber);
+        if (Number.isNaN(parsedServiceNumber)) {
+          errors.push(`Invalid service number "${e.serviceNumber}"`);
+        }
+
+        const cnicNumber = String(e.cnicNumber).trim();
+        if (seenCnicNumbers.has(cnicNumber)) {
+          errors.push('Duplicate CNIC number in CSV');
+        }
+        if (
+          !Number.isNaN(parsedServiceNumber) &&
+          seenServiceNumbers.has(parsedServiceNumber)
+        ) {
+          errors.push('Duplicate service number in CSV');
+        }
+
+        if (errors.length > 0) {
+          validationErrors.push({ row: i + 1, missing: [], errors });
+          continue;
+        }
+
+        seenCnicNumbers.add(cnicNumber);
+        seenServiceNumbers.add(parsedServiceNumber);
+
+        employeesToCreate.push({
+          organizationId,
+          registrationDate: registrationDate ?? now,
+          fullName: String(e.fullName).trim(),
+          fatherName: e.fatherName ? String(e.fatherName).trim() : '',
+          dateOfBirth,
+          cnicNumber,
+          cnicIssueDate: cnicIssueDate!,
+          cnicExpiryDate: cnicExpiryDate!,
+          currentAddress: e.currentAddress ? String(e.currentAddress).trim() : '',
+          permanentAddress: e.permanentAddress
+            ? String(e.permanentAddress).trim()
+            : '',
+          weight: e.weight ? Number(e.weight) : null,
+          height: parsedHeight,
+          religion: e.religion ? String(e.religion).trim() : '',
+          bloodGroup: e.bloodGroup ? String(e.bloodGroup).trim() : '',
+          bloodPressure: e.bloodPressure ? String(e.bloodPressure).trim() : '120/80',
+          heartBeat: e.heartBeat ? String(e.heartBeat).trim() : '',
+          eyeColor: e.eyeColor ? String(e.eyeColor).trim() : '',
+          disability: e.disability ? String(e.disability).trim() : '',
+          eobiNumber: e.eobiNumber ? String(e.eobiNumber).trim() : '',
+          sessiNumber: e.sessiNumber ? String(e.sessiNumber).trim() : '',
+          kinName: e.kinName ? String(e.kinName).trim() : '',
+          kinFatherName: e.kinFatherName ? String(e.kinFatherName).trim() : '',
+          kinCNIC: e.kinCNIC ? String(e.kinCNIC).trim() : '',
+          serviceNumber: parsedServiceNumber,
+          contactNumber: e.contactNumber ? String(e.contactNumber).trim() : 'N/A',
+          kinRelation: e.kinRelation ? String(e.kinRelation).trim() : 'N/A',
+          religionSect: e.religionSect ? String(e.religionSect).trim() : 'N/A',
+          kinContactNumber: e.kinContactNumber
+            ? String(e.kinContactNumber).trim()
+            : 'N/A',
+          createdAt: now,
+          isActive: true,
+          updatedAt: now,
+        });
+      }
+
+      if (validationErrors.length > 0) {
+        throw new BadRequestException({
+          message: 'Validation failed',
+          errors: validationErrors.map((err) => ({
+            row: err.row,
+            message: err.errors
+              ? err.errors.join(', ')
+              : err.missing
+                  .map((field) => `Missing ${formatDateFieldLabel(field)}`)
+                  .join(', '),
+          })),
+        });
+      }
+
+      const existingEmployees = await this.prisma.employee.findMany({
+        where: {
+          OR: [
+            { cnicNumber: { in: Array.from(seenCnicNumbers) } },
+            {
+              organizationId,
+              serviceNumber: { in: Array.from(seenServiceNumbers) },
+            },
+          ],
+        },
+        select: { cnicNumber: true, serviceNumber: true },
+      });
+
+      const existingCnicNumbers = new Set(
+        existingEmployees.map((employee) => employee.cnicNumber),
+      );
+      const existingServiceNumbers = new Set(
+        existingEmployees.map((employee) => employee.serviceNumber),
+      );
+
+      const newEmployees = employeesToCreate.filter((employee) => {
+        const isDuplicate =
+          existingCnicNumbers.has(employee.cnicNumber) ||
+          existingServiceNumbers.has(employee.serviceNumber);
+        if (isDuplicate) {
+          validationErrors.push({
+            row:
+              employees.findIndex(
+                (row) => row.cnicNumber === employee.cnicNumber,
+              ) + 1,
+            missing: [],
+            errors: [
+              `Employee with CNIC ${employee.cnicNumber} or service number ${employee.serviceNumber} already exists in the database`,
+            ],
+          });
+        }
+        return !isDuplicate;
+      });
+
+      if (validationErrors.length > 0) {
+        throw new BadRequestException({
+          message: 'Validation failed',
+          errors: validationErrors.map((err) => ({
+            row: err.row,
+            message:
+              err.errors?.join(', ') ||
+              err.missing
+                ?.map((field) => `Missing ${formatDateFieldLabel(field)}`)
+                .join(', ') ||
+              'Validation error',
+          })),
+        });
+      }
+
+      if (newEmployees.length === 0) {
+        return {
+          success: false,
+          message: 'No new employees to create - all records already exist',
+          duplicates: existingEmployees.length,
+          errors: validationErrors,
+        };
+      }
+
+      const result = await this.prisma.employee.createMany({
+        data: newEmployees,
+        skipDuplicates: false,
+      });
+
+      return {
+        success: true,
+        message: `Successfully created ${result.count} employees`,
+        data: {
+          inserted: result.count,
+          skipped: existingEmployees.length,
+          total: employees.length,
+        },
+      };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException &&
+        error.getResponse()['errors']
+      ) {
+        throw error;
+      }
+
+      const rawMessage =
+        error instanceof Error ? error.message : 'Unknown upload error';
+      const rowMatch = rawMessage.match(/row (\d+)/i);
+      const rowNumber = rowMatch ? parseInt(rowMatch[1], 10) : 1;
+      const safeMessage =
+        rawMessage.length > 300
+          ? 'Failed to save employee data. Please verify date formats (DD/MM/YYYY or YYYY-MM-DD) and required fields.'
+          : rawMessage;
+
+      throw new BadRequestException({
+        message: 'Failed to process employee upload',
+        errors: [{ row: rowNumber, message: safeMessage }],
+      });
     }
   }
 

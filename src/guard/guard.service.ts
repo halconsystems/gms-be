@@ -21,6 +21,10 @@ import { shouldFilterByOffice, getSupervisorLocationFilter } from 'src/common/ut
 import { PromoteSupervisorDto } from './dto/promote-supervisor.dto';
 import { buildBiometricStatus } from 'src/biometric/biometric-status.util';
 import { buildBiometricCaptures } from 'src/biometric/biometric-captures.util';
+import {
+  formatDateFieldLabel,
+  parseFlexibleDate,
+} from 'src/common/utils/parse-flexible-date';
 
 @Injectable()
 export class GuardService {
@@ -199,71 +203,127 @@ export class GuardService {
         const g = guards[i];
         const errors: string[] = [];
 
-        // Check required fields
-        const missing = requiredFields.filter((f) => !g[f]);
+        // Check required fields (trim whitespace from CSV values)
+        const missing = requiredFields.filter((f) => {
+          const value = g[f];
+          return value == null || String(value).trim() === '';
+        });
         if (missing.length > 0) {
           validationErrors.push({
             row: i + 1,
             missing,
-            errors: ['Missing required fields'],
+            errors: missing.map((field) => `Missing ${formatDateFieldLabel(field)}`),
           });
           continue;
         }
 
-        // Check for duplicates within CSV
-        if (seenCnicNumbers.has(g.cnicNumber)) {
-          duplicatesInCsv.add(g.cnicNumber);
-          errors.push('Duplicate CNIC number in CSV');
-        }
-        if (seenServiceNumbers.has(Number(g.serviceNumber))) {
-          errors.push('Duplicate service number in CSV');
+        const cnicIssueDate = parseFlexibleDate(g.cnicIssueDate);
+        if (!cnicIssueDate) {
+          errors.push(
+            `Invalid CNIC Issue Date "${g.cnicIssueDate}". Use DD/MM/YYYY or YYYY-MM-DD`,
+          );
         }
 
-        seenCnicNumbers.add(g.cnicNumber);
-        seenServiceNumbers.add(Number(g.serviceNumber));
+        const cnicExpiryDate = g.cnicExpiryDate
+          ? parseFlexibleDate(g.cnicExpiryDate)
+          : null;
+        if (g.cnicExpiryDate && !cnicExpiryDate) {
+          errors.push(
+            `Invalid CNIC Expiry Date "${g.cnicExpiryDate}". Use DD/MM/YYYY or YYYY-MM-DD`,
+          );
+        }
+
+        const dateOfBirth = g.dateOfBirth
+          ? parseFlexibleDate(g.dateOfBirth)
+          : null;
+        if (g.dateOfBirth && !dateOfBirth) {
+          errors.push(
+            `Invalid Date of Birth "${g.dateOfBirth}". Use DD/MM/YYYY or YYYY-MM-DD`,
+          );
+        }
+
+        const registrationDate = g.registrationDate
+          ? parseFlexibleDate(g.registrationDate)
+          : null;
+        if (g.registrationDate && !registrationDate) {
+          errors.push(
+            `Invalid Registration Date "${g.registrationDate}". Use DD/MM/YYYY or YYYY-MM-DD`,
+          );
+        }
+
+        const parsedHeight = Number(g.height);
+        if (Number.isNaN(parsedHeight)) {
+          errors.push(`Invalid height "${g.height}"`);
+        }
+
+        const parsedServiceNumber = Number(g.serviceNumber);
+        if (Number.isNaN(parsedServiceNumber)) {
+          errors.push(`Invalid service number "${g.serviceNumber}"`);
+        }
+
+        // Check for duplicates within CSV
+        const cnicNumber = String(g.cnicNumber).trim();
+        if (seenCnicNumbers.has(cnicNumber)) {
+          duplicatesInCsv.add(cnicNumber);
+          errors.push('Duplicate CNIC number in CSV');
+        }
+        if (!Number.isNaN(parsedServiceNumber) && seenServiceNumbers.has(parsedServiceNumber)) {
+          errors.push('Duplicate service number in CSV');
+        }
 
         if (errors.length > 0) {
           validationErrors.push({ row: i + 1, missing: [], errors });
           continue;
         }
 
+        seenCnicNumbers.add(cnicNumber);
+        seenServiceNumbers.add(parsedServiceNumber);
+
         guardsToCreate.push({
           id: undefined,
           organizationId,
           officeId,
-          registrationDate: g.registrationDate
-            ? new Date(g.registrationDate)
-            : now,
-          fullName: g.fullName,
-          fatherName: g.fatherName || '',
-          dateOfBirth: g.dateOfBirth ? new Date(g.dateOfBirth) : null,
-          cnicNumber: g.cnicNumber,
-          cnicIssueDate: new Date(g.cnicIssueDate),
-          currentAddress: g.currentAddress || '',
-          permanentAddress: g.permanentAddress || '',
+          registrationDate: registrationDate ?? now,
+          fullName: String(g.fullName).trim(),
+          fatherName: g.fatherName ? String(g.fatherName).trim() : '',
+          dateOfBirth,
+          cnicNumber,
+          cnicIssueDate: cnicIssueDate!,
+          currentAddress: g.currentAddress ? String(g.currentAddress).trim() : '',
+          permanentAddress: g.permanentAddress ? String(g.permanentAddress).trim() : '',
           weight: g.weight ? Number(g.weight) : null,
-          height: Number(g.height),
-          religion: g.religion || '',
-          bloodGroup: g.bloodGroup || '',
-          bloodPressure: g.bloodPressure || '120/80',
-          heartBeat: g.heartBeat || '',
-          eyeColor: g.eyeColor || '',
-          disability: g.disability || '',
-          eobiNumber: g.eobiNumber || '',
-          sessiNumber: g.sessiNumber || '',
-          kinName: g.kinName || '',
-          kinFatherName: g.kinFatherName || '',
-          kinCNIC: g.kinCNIC || '',
-          serviceNumber: Number(g.serviceNumber),
-          cnicExpiryDate: g.cnicExpiryDate ? new Date(g.cnicExpiryDate) : null,
-          contactNumber: g.contactNumber || 'N/A',
-          currentAreaPoliceContact: g.currentAreaPoliceContact || 'N/A',
-          currentAreaPoliceStation: g.currentAreaPoliceStation || 'N/A',
-          kinRelation: g.kinRelation || 'N/A',
-          permanentAreaPoliceContact: g.permanentAreaPoliceContact || 'N/A',
-          permanentAreaPoliceStation: g.permanentAreaPoliceStation || 'N/A',
-          religionSect: g.religionSect || 'N/A',
-          kinContactNumber: g.kinContactNumber || 'N/A',
+          height: parsedHeight,
+          religion: g.religion ? String(g.religion).trim() : '',
+          bloodGroup: g.bloodGroup ? String(g.bloodGroup).trim() : '',
+          bloodPressure: g.bloodPressure ? String(g.bloodPressure).trim() : '120/80',
+          heartBeat: g.heartBeat ? String(g.heartBeat).trim() : '',
+          eyeColor: g.eyeColor ? String(g.eyeColor).trim() : '',
+          disability: g.disability ? String(g.disability).trim() : '',
+          eobiNumber: g.eobiNumber ? String(g.eobiNumber).trim() : '',
+          sessiNumber: g.sessiNumber ? String(g.sessiNumber).trim() : '',
+          kinName: g.kinName ? String(g.kinName).trim() : '',
+          kinFatherName: g.kinFatherName ? String(g.kinFatherName).trim() : '',
+          kinCNIC: g.kinCNIC ? String(g.kinCNIC).trim() : '',
+          serviceNumber: parsedServiceNumber,
+          cnicExpiryDate,
+          contactNumber: g.contactNumber ? String(g.contactNumber).trim() : 'N/A',
+          currentAreaPoliceContact: g.currentAreaPoliceContact
+            ? String(g.currentAreaPoliceContact).trim()
+            : 'N/A',
+          currentAreaPoliceStation: g.currentAreaPoliceStation
+            ? String(g.currentAreaPoliceStation).trim()
+            : 'N/A',
+          kinRelation: g.kinRelation ? String(g.kinRelation).trim() : 'N/A',
+          permanentAreaPoliceContact: g.permanentAreaPoliceContact
+            ? String(g.permanentAreaPoliceContact).trim()
+            : 'N/A',
+          permanentAreaPoliceStation: g.permanentAreaPoliceStation
+            ? String(g.permanentAreaPoliceStation).trim()
+            : 'N/A',
+          religionSect: g.religionSect ? String(g.religionSect).trim() : 'N/A',
+          kinContactNumber: g.kinContactNumber
+            ? String(g.kinContactNumber).trim()
+            : 'N/A',
           createdAt: now,
           isActive: true,
           updatedAt: now,
@@ -393,16 +453,21 @@ export class GuardService {
         throw error;
       }
 
-      // For other errors, try to determine the row number from the error message if possible
-      const rowMatch = error.message.match(/row (\d+)/i);
-      const rowNumber = rowMatch ? parseInt(rowMatch[1]) : 1; // Default to row 1 instead of 0
+      const rawMessage =
+        error instanceof Error ? error.message : 'Unknown upload error';
+      const rowMatch = rawMessage.match(/row (\d+)/i);
+      const rowNumber = rowMatch ? parseInt(rowMatch[1], 10) : 1;
+      const safeMessage =
+        rawMessage.length > 300
+          ? 'Failed to save guard data. Please verify date formats (DD/MM/YYYY or YYYY-MM-DD) and required fields.'
+          : rawMessage;
 
       throw new BadRequestException({
         message: 'Failed to process guard upload',
         errors: [
           {
             row: rowNumber,
-            message: error.message,
+            message: safeMessage,
           },
         ],
       });

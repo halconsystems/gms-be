@@ -13,6 +13,7 @@ import {
   NotFoundException,
   Inject,
   forwardRef,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BiometricStatusResponseDto } from 'src/biometric/dto/biometric-status-response.dto';
@@ -50,6 +51,28 @@ export class EmployeeController {
     @GetOrganizationId() organizationId: string,
   ) {
     return this.employeeService.create(createGuardDto, organizationId);
+  }
+
+  @Post('bulk-upload')
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolesEnum.organizationAdmin, RolesEnum.manager, RolesEnum.staff)
+  @ResponseMessage('Employees uploaded successfully')
+  async bulkUpload(
+    @GetOrganizationId() organizationId: string,
+    @Body() body: { employees: any[] },
+  ) {
+    const result = await this.employeeService.bulkUploadEmployees(
+      organizationId,
+      body.employees,
+    );
+    if (!result.success) {
+      throw new BadRequestException({
+        message: result.message || 'Validation failed',
+        errors: result.errors || [],
+      });
+    }
+    return result;
   }
 
   @Get('/by/serviceNumber')
