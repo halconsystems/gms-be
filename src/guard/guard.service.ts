@@ -25,6 +25,7 @@ import {
   formatDateFieldLabel,
   parseFlexibleDate,
 } from 'src/common/utils/parse-flexible-date';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class GuardService {
@@ -345,36 +346,63 @@ export class GuardService {
 
       // Step 2: Check for existing guards in database
       console.log('Checking for existing guards...');
-      const existingGuards = await this.prisma.guard.findMany({
-        where: {
-          OR: [
-            { cnicNumber: { in: Array.from(seenCnicNumbers) } },
-            { serviceNumber: { in: Array.from(seenServiceNumbers) } },
-          ],
-          organizationId,
-        },
-        select: { cnicNumber: true, serviceNumber: true },
-      });
+      const [existingByCnic, existingByServiceInOrg] = await Promise.all([
+        this.prisma.guard.findMany({
+          where: { cnicNumber: { in: Array.from(seenCnicNumbers) } },
+          select: { cnicNumber: true, serviceNumber: true },
+        }),
+        this.prisma.guard.findMany({
+          where: {
+            organizationId,
+            serviceNumber: { in: Array.from(seenServiceNumbers) },
+          },
+          select: { cnicNumber: true, serviceNumber: true },
+        }),
+      ]);
+
+      const existingGuards = [
+        ...existingByCnic,
+        ...existingByServiceInOrg.filter(
+          (guard) =>
+            !existingByCnic.some(
+              (byCnic) => byCnic.serviceNumber === guard.serviceNumber,
+            ),
+        ),
+      ];
 
       const existingCnicNumbers = new Set(
-        existingGuards.map((g) => g.cnicNumber),
+        existingByCnic.map((g) => g.cnicNumber),
       );
       const existingServiceNumbers = new Set(
-        existingGuards.map((g) => g.serviceNumber),
+        existingByServiceInOrg.map((g) => g.serviceNumber),
       );
 
       // Filter out guards that already exist and collect validation errors
       const newGuards = guardsToCreate.filter((g) => {
-        const isDuplicate =
-          existingCnicNumbers.has(g.cnicNumber) ||
-          existingServiceNumbers.has(g.serviceNumber);
+        const cnicDuplicate = existingCnicNumbers.has(g.cnicNumber);
+        const serviceDuplicate = existingServiceNumbers.has(g.serviceNumber);
+        const isDuplicate = cnicDuplicate || serviceDuplicate;
+
         if (isDuplicate) {
+          const duplicateMessages: string[] = [];
+          if (cnicDuplicate) {
+            duplicateMessages.push(
+              `CNIC ${g.cnicNumber} is already registered in the system`,
+            );
+          }
+          if (serviceDuplicate) {
+            duplicateMessages.push(
+              `Service number ${g.serviceNumber} already exists in your organization`,
+            );
+          }
+
           validationErrors.push({
-            row: guards.findIndex((row) => row.cnicNumber === g.cnicNumber) + 1,
+            row:
+              guards.findIndex(
+                (row) => String(row.cnicNumber).trim() === g.cnicNumber,
+              ) + 1,
             missing: [],
-            errors: [
-              `Guard with CNIC ${g.cnicNumber} or service number ${g.serviceNumber} already exists in the database`,
-            ],
+            errors: duplicateMessages,
           });
         }
         return !isDuplicate;
@@ -446,21 +474,50 @@ export class GuardService {
       console.error('Error in bulkUploadGuards:', error);
 
       // If this is already a BadRequestException with errors, rethrow it
-      if (
-        error instanceof BadRequestException &&
-        error.getResponse()['errors']
-      ) {
+      const response = error.getResponse();
+      const responseErrors =
+        typeof response === 'object' &&
+        response !== null &&
+        Array.isArray((response as { errors?: unknown }).errors)
+          ? (response as { errors: { row: number; message: string }[] }).errors
+          : null;
+
+      if (error instanceof BadRequestException && responseErrors) {
         throw error;
+      }
+
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const fields = (error.meta?.target as string[] | undefined) ?? [];
+        throw new BadRequestException({
+          message: 'Validation failed',
+          errors: [
+            {
+              row: 1,
+              message: fields.includes('cnicNumber')
+                ? 'One or more CNIC numbers in this file are already registered. Remove those rows or update the existing guards.'
+                : 'One or more records conflict with existing data in the system.',
+            },
+          ],
+        });
       }
 
       const rawMessage =
         error instanceof Error ? error.message : 'Unknown upload error';
       const rowMatch = rawMessage.match(/row (\d+)/i);
       const rowNumber = rowMatch ? parseInt(rowMatch[1], 10) : 1;
-      const safeMessage =
-        rawMessage.length > 300
-          ? 'Failed to save guard data. Please verify date formats (DD/MM/YYYY or YYYY-MM-DD) and required fields.'
-          : rawMessage;
+
+      let safeMessage = rawMessage;
+      if (/unique constraint failed/i.test(rawMessage)) {
+        safeMessage = rawMessage.includes('cnicNumber')
+          ? 'CNIC number is already registered in the system. Remove this row or update the existing guard.'
+          : 'A record in this file already exists in the system.';
+      } else if (rawMessage.length > 300) {
+        safeMessage =
+          'Failed to save guard data. Check for duplicate CNIC or service numbers, and verify all required fields.';
+      }
 
       throw new BadRequestException({
         message: 'Failed to process guard upload',
