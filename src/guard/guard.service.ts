@@ -25,6 +25,7 @@ import {
   formatDateFieldLabel,
   parseFlexibleDate,
 } from 'src/common/utils/parse-flexible-date';
+import { validateGuardAge } from 'src/common/utils/guard-age';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -241,6 +242,11 @@ export class GuardService {
           errors.push(
             `Invalid Date of Birth "${g.dateOfBirth}". Use DD/MM/YYYY or YYYY-MM-DD`,
           );
+        } else if (dateOfBirth) {
+          const ageError = validateGuardAge(dateOfBirth);
+          if (ageError) {
+            errors.push(ageError);
+          }
         }
 
         const registrationDate = g.registrationDate
@@ -533,6 +539,13 @@ export class GuardService {
 
   async create(data: CreateGuardDto, organizationId: string) {
     try {
+      if (data.dateOfBirth) {
+        const ageError = validateGuardAge(new Date(data.dateOfBirth));
+        if (ageError) {
+          throw new BadRequestException(ageError);
+        }
+      }
+
       if (!data.serviceNumber) {
         const lastGuard = await this.prisma.guard.findFirst({
           where: { organizationId },
@@ -891,6 +904,13 @@ export class GuardService {
     const filter = shouldFilterByOffice(user, { allowStaff: true });
     if (filter.shouldFilter && filter.officeId && guard.officeId !== filter.officeId) {
       throw new ForbiddenException('You do not have permission to update this guard');
+    }
+
+    if (data.dateOfBirth) {
+      const ageError = validateGuardAge(new Date(data.dateOfBirth));
+      if (ageError) {
+        throw new BadRequestException(ageError);
+      }
     }
 
     // Destructure nested fields
